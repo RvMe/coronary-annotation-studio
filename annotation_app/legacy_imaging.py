@@ -30,6 +30,7 @@ from typing import NamedTuple
 import numpy as np
 import SimpleITK as sitk
 from scipy.ndimage import map_coordinates
+from .imaging import _assert_self_contained_image
 
 
 class GeometryError(ValueError):
@@ -63,6 +64,7 @@ def _read_image(path: str | Path) -> sitk.Image:
     the source repository, and never rename the user's data to work around ITK.
     """
     path = Path(path).resolve()
+    _assert_self_contained_image(path)
     if os.name != "nt" or str(path).isascii():
         return sitk.ReadImage(str(path))
     short = _ascii_short_path(path)

@@ -44,6 +44,10 @@ Path names are identifiers, not an inferred anatomical classification. One path
 is valid. No fixed LAD/LCX/RCA set is required. The complete synthetic manifests
 are runnable examples of the format.
 
+Use self-contained `.nii`, `.nii.gz` or `.nrrd` images. A NRRD header that refers
+to a detached pixel file is rejected, because the referenced pixels would not
+be bound by that image's checksum. Re-export it as a single `.nrrd` file first.
+
 ## Spatial mapping
 
 Each path has `image`, optional `display_name`, and `mapping` with `type`, `file`,

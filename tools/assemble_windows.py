@@ -13,6 +13,8 @@ from verify_compiled_sources import verify as verify_compiled
 def main():
     p=argparse.ArgumentParser();p.add_argument('--app',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--source-cache',type=Path,required=True);a=p.parse_args()
     root=Path(__file__).resolve().parents[1];out=a.output.resolve()
+    dirty=subprocess.run(['git','status','--porcelain','--untracked-files=normal'],cwd=root,check=True,capture_output=True,text=True).stdout
+    if dirty.strip():raise ValueError('Commit the reviewed source before assembly; SOURCE-VERSION must identify an exact snapshot')
     if out.exists():raise FileExistsError('Choose a new release output')
     payload=out/'CoronaryAnnotationStudio-v0.1.0-windows-x64';payload.mkdir(parents=True)
     app=payload/'app';shutil.copytree(a.app,app)

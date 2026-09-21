@@ -14,6 +14,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import shutil
 import tempfile
 from dataclasses import dataclass
@@ -27,6 +28,19 @@ from scipy.ndimage import map_coordinates
 
 class GeometryError(ValueError):
     """Input geometry cannot safely identify native physical positions."""
+
+
+def _assert_self_contained_image(path):
+    """A checksummed NRRD must not load an unhashed external pixel file."""
+    path = Path(path)
+    if path.suffix.lower() != '.nrrd':
+        return
+    with path.open('rb') as stream:
+        header = stream.read(65536).replace(b'\r\n', b'\n').split(b'\n\n', 1)
+    if len(header) != 2 or not header[0].startswith(b'NRRD'):
+        raise GeometryError(f'{path.name}: invalid or oversized NRRD header')
+    if re.search(rb'^data\s*file\s*:', header[0], re.IGNORECASE | re.MULTILINE):
+        raise GeometryError(f'{path.name}: detached NRRD pixel data is not hash-bound; export a self-contained .nrrd')
 
 
 def _ascii_short_path(path: Path) -> str | None:
@@ -56,6 +70,7 @@ def _read_image(path: str | Path) -> sitk.Image:
     the source repository, and never rename the user's data to work around ITK.
     """
     path = Path(path).resolve()
+    _assert_self_contained_image(path)
     if os.name != "nt" or str(path).isascii():
         return sitk.ReadImage(str(path))
     short = _ascii_short_path(path)

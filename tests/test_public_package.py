@@ -68,6 +68,13 @@ class PublicPackageTests(unittest.TestCase):
         path=self.edit_case("single",lambda m:m.update(native="../other.nii.gz"))
         with self.assertRaises(ValueError):load_case(path)
 
+    def test_detached_nrrd_cannot_read_unhashed_external_pixels(self):
+        folder=self.package/'single'
+        image=folder/'unbound.nrrd'
+        image.write_bytes(b'NRRD0005\ntype: short\ndimension: 3\nsizes: 2 2 2\nencoding: raw\ndata file: external.raw\n\n')
+        path=self.edit_case('single',lambda m:m.update(native='unbound.nrrd',files=m['files']+[file_record(image,folder)]))
+        with self.assertRaisesRegex(GeometryError,'unbound.nrrd.*detached NRRD'):load_case(path)
+
     def test_case_identity_collision_across_projects(self):
         one={"project_id":"one","geometry_id":"g"};two={"project_id":"two","geometry_id":"g"}
         with AnnotationStore(self.root/'one/db.sqlite') as a,AnnotationStore(self.root/'two/db.sqlite') as b:
