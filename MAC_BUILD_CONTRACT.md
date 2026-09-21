@@ -60,6 +60,11 @@ When native tar cannot decode zstd, use a separate license-tool environment with
 `zstandard==0.25.0`. This decompressor is not an application dependency.
 `mac_licenses.validate_python_license_proof` rechecks interpreter version,
 architecture, native files and complete original license coverage at assembly.
+Original upstream `PYTHON.json` is verified locally against the immutable proof.
+The release carries `PYTHON_METADATA_PUBLIC.json`, a separately named path-only
+derivative that identifies the original metadata hash. Original license texts
+and the license proof retain their exact bytes. Recreate the original metadata
+from the official archive pinned in the proof when reproducing the build.
 An older license-proof schema identifier is retained solely for reading immutable
 provenance; it is not the public application or annotation schema.
 

@@ -21,7 +21,7 @@
       "source_bytes": 17663,
       "source_sha256": "51403b844a4fe56112d96762fbf7dd8e77dccafaf8d96286df1ef28cf9ccaf56",
       "target_path": "tools/mac_licenses.py",
-      "changes": "Extract license collection and exact installed-native/provenance checks; use shared CAS copy/hash helpers and strict member paths; reject content-address collisions. Public bootstrap provenance is a path-sanitized derivative linked by original SHA; immutable local and vendor license proofs retained."
+      "changes": "Extract license collection and exact installed-native/provenance checks; use shared CAS copy/hash helpers and strict member paths; reject content-address collisions. Public bootstrap provenance is a path-sanitized derivative linked by original SHA; immutable local and vendor license proofs retained. Public Python build metadata uses a distinct derivative filename, original metadata SHA and unchanged proof binding; original vendor notice/proof bytes preserved."
     }
   ]
 }

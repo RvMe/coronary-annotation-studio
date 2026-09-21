@@ -50,14 +50,21 @@ def collect_licenses(payload, python_root, python_provenance, architecture, reda
         python_files.append({'original_path': item['original_path'], **file_record(target, payload)})
     copy_checked(python_root / 'PYTHON_LICENSE_PROVENANCE.json',
                  payload / 'third_party_licenses/Python-standalone/PYTHON_LICENSE_PROVENANCE.json')
-    copy_checked(python_root / 'PYTHON.json', payload / 'third_party_licenses/Python-standalone/PYTHON.json')
+    # PYTHON.json can contain upstream build-host paths. Do not change the
+    # original metadata/proof pair or give its derivative the original name.
+    metadata_target=payload / 'third_party_licenses/Python-standalone/PYTHON_METADATA_PUBLIC.json'
+    public_json(python_root / 'PYTHON.json', metadata_target, redaction_roots)
     public_json(Path(python_provenance), payload / 'PYTHON_BUILD_PROVENANCE.json', redaction_roots)
     records.append({'distribution': 'CPython standalone and bundled native dependencies',
                     'version': sys.version, 'license_files': python_files,
                     'provenance_file': 'PYTHON_BUILD_PROVENANCE.json',
                     'provenance': sanitize(provenance, redaction_roots),
                     'original_provenance_sha256': digest(python_provenance),
-                    'public_provenance_is_sanitized_derivative': True})
+                    'public_provenance_is_sanitized_derivative': True,
+                    'original_license_proof_sha256': digest(python_root / 'PYTHON_LICENSE_PROVENANCE.json'),
+                    'original_python_metadata_sha256': license_proof['python_metadata_sha256'],
+                    'public_python_metadata': file_record(metadata_target,payload),
+                    'metadata_note': 'Original full-distribution metadata was verified locally against the unchanged proof before assembly. The separately named public metadata is a path-only derivative with its original SHA; reproduce the original using the proof-linked official archive.'})
     return records
 
 
@@ -94,4 +101,3 @@ def validate_python_license_proof(python_root, base_prefix, bootstrap, python_ve
                 or digest(native) != item['sha256'] or native.stat().st_size != item['bytes']):
             raise ValueError('Installed CPython native binary differs from the licensed artifact: ' + item['path'])
     return proof
-

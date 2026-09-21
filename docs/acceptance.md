@@ -1,6 +1,10 @@
 # Release acceptance evidence
 
-Status: **implementation and verification in progress; not yet published**.
+**Source and integration evidence captured on 2026-09-21.** This document is
+included in the source snapshot used to assemble the programs. Final immutable
+archive status and SHA-256 values are distributed separately as
+`RELEASE-ACCEPTANCE.json` and `SHA256SUMS.txt` with the release. An archive is
+accepted only after its own re-extraction workflow passes.
 
 | Gate | Current evidence |
 | --- | --- |
@@ -12,9 +16,9 @@ Status: **implementation and verification in progress; not yet published**.
 | Mac x86_64 under Rosetta | The same frozen common source passed 168 regressions, 237 layout assertions and create/resume 25/33 checks under Rosetta on macOS 26.2; Intel physical hardware not tested |
 | Live Slicer nonlinear export | Official Slicer 5.12.4 on Mac under Rosetta: exporter 12,057 probes max 0.008868 native voxel; independent 6,000 probes max 0.009696, below 0.1; exported synthetic package loaded, annotated, restored and exported on Windows and both Mac architectures |
 | Windows candidate ZIP | Re-extraction, complete file-hash verification and independent native create/resume processes passed 25/33 checks; bundled Python/Qt paths isolated from the development environment |
-| Mac final ZIP workflows | Both architecture builds in progress; final ZIP acceptance pending |
-| Hosted CI, Pages and public download hash | Awaiting local acceptance, then GitHub login |
+| Mac final ZIP workflows | Recorded separately for each immutable archive in the release acceptance record |
+| Hosted CI, Pages and public download hash | Check the repository Actions runs and release acceptance record for publication-time results |
 
-This file is updated from actual reports before release. A build target is not
+This source-stage evidence does not replace the final archive report. A build target is not
 evidence of testing on an older OS. Rosetta does not establish Intel hardware
 acceptance. No clinical/reader acceptance is claimed by technical checks.
