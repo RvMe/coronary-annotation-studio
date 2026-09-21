@@ -1,0 +1,19 @@
+{
+  "schema_version": "cas-package-1.0",
+  "project_id": "synthetic-demo-v1",
+  "name": "Synthetic coronary examples (not patient data)",
+  "cases": [
+    {
+      "case_id": "single",
+      "case_manifest": "single/case.json"
+    },
+    {
+      "case_id": "multiple",
+      "case_manifest": "multiple/case.json"
+    },
+    {
+      "case_id": "shared-lm",
+      "case_manifest": "shared-lm/case.json"
+    }
+  ]
+}

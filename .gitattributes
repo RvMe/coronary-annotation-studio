@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.png -text
+*.nrrd -text
+*.npz -text
+*.nii.gz -text

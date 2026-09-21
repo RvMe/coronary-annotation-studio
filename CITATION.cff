@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "Please cite the software version used in your research and report your data preparation and annotation protocol."
+title: Coronary Annotation Studio
+type: software
+version: 0.1.0
+license: Apache-2.0
+authors:
+  - name: Coronary Annotation Studio contributors
+abstract: Offline coronary CPR lesion interval annotation, reader review, native CT linkage and auditable export.

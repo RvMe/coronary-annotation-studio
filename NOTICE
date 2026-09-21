@@ -1,0 +1,13 @@
+Coronary Annotation Studio
+Copyright 2026 Coronary Annotation Studio contributors
+
+This software includes annotation, transaction, recovery and geometry code
+extracted from the authors' earlier private coronary research annotation tool.
+SOURCE_ORIGIN.json records the source-file hashes used for this extraction.
+Legacy compatibility preserves the earlier ImageCAS-X schema identifiers and
+original provenance when users explicitly import such data. The public product
+does not require that dataset.
+
+Application code is licensed under Apache License 2.0. Dependencies retain their
+own licenses. Binary distributions include dependency inventories, license text,
+and corresponding Qt/PySide source archives. No patient data is distributed.

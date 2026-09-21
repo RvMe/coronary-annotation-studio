@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv*/
+build/
+dist/
+site/
+release-evidence/
+IMPLEMENTATION.md
+examples/synthetic/
+*.sqlite*
+*.db
+*.session.json
+*.app.lock
+*.zip
+*.tar.xz
+*.log
+.DS_Store

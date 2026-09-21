@@ -1,0 +1,5 @@
+PySide6==6.9.3
+SimpleITK==2.5.2
+numpy==2.2.6
+scipy==1.15.3
+pynrrd==1.1.3

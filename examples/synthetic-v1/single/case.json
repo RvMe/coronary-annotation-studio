@@ -1,0 +1,52 @@
+{
+  "schema_version": "cas-case-1.0",
+  "project_id": "synthetic-demo-v1",
+  "case_id": "single",
+  "geometry_id": "synthetic-single-v1",
+  "units": "mm",
+  "coordinate_system": "LPS",
+  "intensity_units": "HU",
+  "native": "native.nii.gz",
+  "paths": {
+    "coronary-path-A": {
+      "image": "coronary-path-A.nrrd",
+      "display_name": "coronary-path-A",
+      "mapping": {
+        "type": "coordinate_field",
+        "file": "coronary-path-A.npz",
+        "axis_order": "s,v,u",
+        "inplane_spacing_mm": [
+          0.4,
+          0.4
+        ]
+      }
+    }
+  },
+  "annotation_scope": [
+    "coronary-path-A"
+  ],
+  "canonical_lm": {
+    "status": "not_present"
+  },
+  "metadata": {
+    "synthetic": true,
+    "description": "Mathematical phantom; no patient data"
+  },
+  "files": [
+    {
+      "path": "coronary-path-A.npz",
+      "bytes": 137864,
+      "sha256": "7013e077da63036e3fccb2e508e09af8550a5522d05704725b44026167405cfc"
+    },
+    {
+      "path": "coronary-path-A.nrrd",
+      "bytes": 157022,
+      "sha256": "0986c4acf137dc3dcb5dc7466f6599a7d2d2227f9b8f253b6986410ce58de54d"
+    },
+    {
+      "path": "native.nii.gz",
+      "bytes": 213878,
+      "sha256": "0efb7eee6575e69448df1bd29f33f480d51cca9b7be013d653a19264521a8468"
+    }
+  ]
+}

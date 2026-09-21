@@ -1,0 +1,100 @@
+{
+  "schema_version": "cas-case-1.0",
+  "project_id": "synthetic-demo-v1",
+  "case_id": "multiple",
+  "geometry_id": "synthetic-multiple-v1",
+  "units": "mm",
+  "coordinate_system": "LPS",
+  "intensity_units": "HU",
+  "native": "native.nii.gz",
+  "paths": {
+    "LAD": {
+      "image": "LAD.nrrd",
+      "display_name": "LAD",
+      "mapping": {
+        "type": "frames",
+        "file": "LAD.npz",
+        "axis_order": "s,v,u",
+        "inplane_spacing_mm": [
+          0.4,
+          0.4
+        ]
+      }
+    },
+    "LCX": {
+      "image": "LCX.nrrd",
+      "display_name": "LCX",
+      "mapping": {
+        "type": "frames",
+        "file": "LCX.npz",
+        "axis_order": "s,v,u",
+        "inplane_spacing_mm": [
+          0.4,
+          0.4
+        ]
+      }
+    },
+    "RCA": {
+      "image": "RCA.nrrd",
+      "display_name": "RCA",
+      "mapping": {
+        "type": "frames",
+        "file": "RCA.npz",
+        "axis_order": "s,v,u",
+        "inplane_spacing_mm": [
+          0.4,
+          0.4
+        ]
+      }
+    }
+  },
+  "annotation_scope": [
+    "LAD",
+    "LCX",
+    "RCA"
+  ],
+  "canonical_lm": {
+    "status": "not_present"
+  },
+  "metadata": {
+    "synthetic": true,
+    "description": "Mathematical phantom; no patient data"
+  },
+  "files": [
+    {
+      "path": "LAD.npz",
+      "bytes": 3817,
+      "sha256": "89b98061263b5ad11e8091d220a92620e8677e86215bef453c06b76036b2ecef"
+    },
+    {
+      "path": "LAD.nrrd",
+      "bytes": 157022,
+      "sha256": "0986c4acf137dc3dcb5dc7466f6599a7d2d2227f9b8f253b6986410ce58de54d"
+    },
+    {
+      "path": "LCX.npz",
+      "bytes": 3812,
+      "sha256": "8d2cc69bc499b4a42705a57a937ba33e9e86dc72f3685aac1afedcf1760dc49d"
+    },
+    {
+      "path": "LCX.nrrd",
+      "bytes": 157022,
+      "sha256": "30f6861f6187f2d6fde2a68d0afce444b63e5597e73d619b95e71f37f3d38b9d"
+    },
+    {
+      "path": "native.nii.gz",
+      "bytes": 213878,
+      "sha256": "0efb7eee6575e69448df1bd29f33f480d51cca9b7be013d653a19264521a8468"
+    },
+    {
+      "path": "RCA.npz",
+      "bytes": 3807,
+      "sha256": "062495ab24d2515683b68f2b8b133b6262d4354c39233fcd2dac17f6d0b7d7db"
+    },
+    {
+      "path": "RCA.nrrd",
+      "bytes": 157022,
+      "sha256": "616291a4765a3defa9cfcdc285248448ca8072396a61fa78c99da7727e2855ef"
+    }
+  ]
+}

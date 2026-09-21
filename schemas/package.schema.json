@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Coronary Annotation Studio package 1.0",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "cas-package-1.0"
+    },
+    "project_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+          },
+          "case_manifest": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Relative portable asset path, contained within the case directory. Runtime validation rejects escapes/drives."
+          }
+        },
+        "required": [
+          "case_id",
+          "case_manifest"
+        ]
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "project_id",
+    "cases"
+  ]
+}

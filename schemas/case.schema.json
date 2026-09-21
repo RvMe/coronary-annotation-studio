@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Coronary Annotation Studio case 1.0",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "cas-case-1.0"
+    },
+    "project_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+    },
+    "geometry_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+    },
+    "units": {
+      "const": "mm"
+    },
+    "coordinate_system": {
+      "const": "LPS"
+    },
+    "intensity_units": {
+      "const": "HU"
+    },
+    "native": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relative portable asset path, contained within the case directory. Runtime validation rejects escapes/drives."
+    },
+    "paths": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Relative portable asset path, contained within the case directory. Runtime validation rejects escapes/drives."
+          },
+          "mapping": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "frames",
+                  "coordinate_field"
+                ]
+              },
+              "file": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Relative portable asset path, contained within the case directory. Runtime validation rejects escapes/drives."
+              },
+              "axis_order": {
+                "const": "s,v,u"
+              },
+              "inplane_spacing_mm": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "type",
+              "file",
+              "axis_order",
+              "inplane_spacing_mm"
+            ]
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "anatomical_identity": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "image",
+          "mapping"
+        ]
+      }
+    },
+    "annotation_scope": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+      },
+      "uniqueItems": true,
+      "minItems": 1
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Relative portable asset path, contained within the case directory. Runtime validation rejects escapes/drives."
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "path",
+          "bytes",
+          "sha256"
+        ]
+      },
+      "minItems": 1
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "canonical_lm": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "verified",
+            "not_present",
+            "ambiguous"
+          ]
+        },
+        "owner": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+        },
+        "reference_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+          },
+          "minItems": 0
+        },
+        "verified_end_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "relationship_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {}
+      },
+      "required": [
+        "status"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "project_id",
+    "case_id",
+    "geometry_id",
+    "units",
+    "coordinate_system",
+    "intensity_units",
+    "native",
+    "paths",
+    "annotation_scope",
+    "files"
+  ]
+}

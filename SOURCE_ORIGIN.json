@@ -1,0 +1,135 @@
+{
+  "schema_version": "cas-source-extraction-1.0",
+  "origin": "Private predecessor coronary annotation application v0.1.6",
+  "extracted_files": [
+    {
+      "path": "annotation_app/__init__.py",
+      "sha256": "e94207ae4d1ac9d9e578413def0bb044cdf623138431ba9aa155be0a1a5d7721",
+      "bytes": 109
+    },
+    {
+      "path": "annotation_app/__main__.py",
+      "sha256": "a67c172046323b0efcafe92cb83abc266d5dd4bc931d9312cde1b7bed50643db",
+      "bytes": 48
+    },
+    {
+      "path": "annotation_app/app.py",
+      "sha256": "68cebe6cbc417b566e8891184c696e8102818c64aa1e6039bc243c8a0c5c513a",
+      "bytes": 107419
+    },
+    {
+      "path": "annotation_app/widgets.py",
+      "sha256": "6c6157cf91519022d66f84fd047406440e5d07262c93a6d8ee3557cca0fac7bc",
+      "bytes": 36258
+    },
+    {
+      "path": "annotation_app/domain.py",
+      "sha256": "3c91da780db9fd65b66336f3681dc1806df4ceebdbedd04d2d48511f1d6bb994",
+      "bytes": 27547
+    },
+    {
+      "path": "annotation_app/imaging.py",
+      "sha256": "78b93fa50ff7af0d582c8c8d9e442d8a1683a90c2c63e7c1a223eb730c32ad6e",
+      "bytes": 23505
+    },
+    {
+      "path": "annotation_app/storage.py",
+      "sha256": "e71ce1c99804782b5d13c97bbc64af8f97d9bda995a793ca0cd534ed6ee881bc",
+      "bytes": 19682
+    },
+    {
+      "path": "annotation_app/label_catalog.py",
+      "sha256": "25c3186b2573ec4a21751b59981e867367656a121abbed185c713553456ee446",
+      "bytes": 1805
+    },
+    {
+      "path": "annotation_app/label_logic.py",
+      "sha256": "ca1e8c41109ef7f38b60d567e77ed20140dfaff5ee99941af908988cb3364e03",
+      "bytes": 7854
+    },
+    {
+      "path": "annotation_app/platform_support.py",
+      "sha256": "cebb10fea9c6b20c09aa1a3bf49274086da5f9178d8b1e44829899e152358624",
+      "bytes": 3220
+    },
+    {
+      "path": "annotation_app/launch.py",
+      "sha256": "725e409e7f4ac23a98c3201a94848b5286750dd9a587a25923867793d4b7df14",
+      "bytes": 143
+    },
+    {
+      "path": "annotation_app/requirements.txt",
+      "sha256": "152a541271fd6098759db92fb4a370055b6461d583d399c76c05cfaa6fb1141a",
+      "bytes": 74
+    }
+  ],
+  "history_copied": false,
+  "patient_data_copied": false,
+  "additional_extracted_sources": [
+    {
+      "original_path": "annotation_app/domain.py",
+      "sha256": "3c91da780db9fd65b66336f3681dc1806df4ceebdbedd04d2d48511f1d6bb994",
+      "bytes": 27547
+    },
+    {
+      "original_path": "annotation_app/storage.py",
+      "sha256": "e71ce1c99804782b5d13c97bbc64af8f97d9bda995a793ca0cd534ed6ee881bc",
+      "bytes": 19682
+    },
+    {
+      "original_path": "annotation_app/imaging.py",
+      "sha256": "78b93fa50ff7af0d582c8c8d9e442d8a1683a90c2c63e7c1a223eb730c32ad6e",
+      "bytes": 23505
+    },
+    {
+      "original_path": "annotation_app/tools/assemble_release.py",
+      "sha256": "85ab6f98ca05620ce3ba5cc66255e5b00f31b9e27e5d23746d45208f5d47330f",
+      "bytes": 34894
+    },
+    {
+      "original_path": "tests/test_domain.py",
+      "sha256": "0db449f7a8ad8c679653e9f191d21342b6de5b7de5a8d3e64da8ebc89a9b3d0a",
+      "bytes": 10780
+    },
+    {
+      "original_path": "tests/test_storage.py",
+      "sha256": "4cc4e8d55aa5d09e84c6393d04ad523f4d5f688ffe1d9dbd713322f956791e5b",
+      "bytes": 12395
+    },
+    {
+      "original_path": "tests/test_imaging.py",
+      "sha256": "f6eb5679e6b4ae3f43455b7616222f455880398202e9cacd3ed581b471ab31b3",
+      "bytes": 20357
+    },
+    {
+      "original_path": "tests/test_label_logic_v012.py",
+      "sha256": "0d218639b73793955dfd7a655d6c714742d6fb4580a151616ca3961dfaf9416e",
+      "bytes": 9281
+    },
+    {
+      "original_path": "tests/test_completion_v012.py",
+      "sha256": "1b90086e70bdc289ccea57e4a5812c9d2a8cb71b5283831db3d61598c9a549d1",
+      "bytes": 16169
+    },
+    {
+      "original_path": "tests/test_reason_contract.py",
+      "sha256": "c4728be512cc64606c10753f89772018a50031f4420c4c62cb468fafcba1fc56",
+      "bytes": 9358
+    },
+    {
+      "original_path": "tests/test_review_semantics_v013.py",
+      "sha256": "74481ed82089f655fb7c0c72b97dcfcbf16a68b45a054f40a1e39cb287cc0df3",
+      "bytes": 12997
+    },
+    {
+      "original_path": "tests/test_export_workflow_review.py",
+      "sha256": "ca130f5db833cc55bfdb7c2754bfccb7d74be834e5e446c232b5bd3c7473bdb6",
+      "bytes": 6840
+    },
+    {
+      "original_path": "tests/test_process_crash.py",
+      "sha256": "fce6b6f563526bea7f740a29e3d0041400bcbc7934722f3dcc60012a9fa71088",
+      "bytes": 7152
+    }
+  ]
+}

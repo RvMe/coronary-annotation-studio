@@ -1,0 +1,86 @@
+{
+  "schema_version": "cas-case-1.0",
+  "project_id": "synthetic-demo-v1",
+  "case_id": "shared-lm",
+  "geometry_id": "synthetic-shared-lm-v1",
+  "units": "mm",
+  "coordinate_system": "LPS",
+  "intensity_units": "HU",
+  "native": "native.nii.gz",
+  "paths": {
+    "LAD": {
+      "image": "LAD.nrrd",
+      "display_name": "LAD",
+      "mapping": {
+        "type": "frames",
+        "file": "LAD.npz",
+        "axis_order": "s,v,u",
+        "inplane_spacing_mm": [
+          0.4,
+          0.4
+        ]
+      }
+    },
+    "LCX": {
+      "image": "LCX.nrrd",
+      "display_name": "LCX",
+      "mapping": {
+        "type": "frames",
+        "file": "LCX.npz",
+        "axis_order": "s,v,u",
+        "inplane_spacing_mm": [
+          0.4,
+          0.4
+        ]
+      }
+    }
+  },
+  "annotation_scope": [
+    "LAD",
+    "LCX"
+  ],
+  "canonical_lm": {
+    "status": "verified",
+    "owner": "LAD",
+    "reference_paths": [
+      "LAD",
+      "LCX"
+    ],
+    "verified_end_mm": 9.6,
+    "relationship_id": "synthetic-shared-prefix",
+    "evidence": {
+      "source": "Synthetic construction; identical proximal LPS centers"
+    }
+  },
+  "metadata": {
+    "synthetic": true,
+    "description": "Mathematical phantom; no patient data"
+  },
+  "files": [
+    {
+      "path": "LAD.npz",
+      "bytes": 3817,
+      "sha256": "89b98061263b5ad11e8091d220a92620e8677e86215bef453c06b76036b2ecef"
+    },
+    {
+      "path": "LAD.nrrd",
+      "bytes": 157022,
+      "sha256": "0986c4acf137dc3dcb5dc7466f6599a7d2d2227f9b8f253b6986410ce58de54d"
+    },
+    {
+      "path": "LCX.npz",
+      "bytes": 4835,
+      "sha256": "2b63e71e6534a67f6d0c1cc515dd4af652c2be72d52c30737dacdcceddc86b1f"
+    },
+    {
+      "path": "LCX.nrrd",
+      "bytes": 157022,
+      "sha256": "2d977b9d77d357be91013bf2e35547eea82aadce61c69f684624b821b6f4f480"
+    },
+    {
+      "path": "native.nii.gz",
+      "bytes": 213878,
+      "sha256": "0efb7eee6575e69448df1bd29f33f480d51cca9b7be013d653a19264521a8468"
+    }
+  ]
+}

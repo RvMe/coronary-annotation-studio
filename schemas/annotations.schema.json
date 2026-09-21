@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Coronary Annotation Studio annotations 1.0",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "cas-annotations-1.0"
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+    },
+    "reader_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "project_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+        },
+        "geometry_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+        },
+        "annotation_scope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "project_id",
+        "geometry_id",
+        "annotation_scope"
+      ]
+    },
+    "annotations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "annotation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label_group_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "path_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+          },
+          "canonical_anatomy_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "anatomical_segment": {
+            "type": "string",
+            "minLength": 1
+          },
+          "s_start_mm": {
+            "type": "number",
+            "minimum": 0
+          },
+          "s_end_mm": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "label": {
+            "type": "object",
+            "properties": {
+              "finding_status": {
+                "enum": [
+                  "negative",
+                  "positive",
+                  "uncertain",
+                  "non_evaluable"
+                ]
+              },
+              "plaque_composition": {
+                "enum": [
+                  null,
+                  "calcified",
+                  "non_calcified",
+                  "partially_calcified",
+                  "uncertain"
+                ]
+              },
+              "stenosis_grade": {
+                "enum": [
+                  "0",
+                  "1_24",
+                  "25_49",
+                  "50_69",
+                  "70_99",
+                  "100",
+                  "unable"
+                ]
+              },
+              "confidence": {
+                "enum": [
+                  null,
+                  "high",
+                  "medium",
+                  "low"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              },
+              "reason_codes": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "motion_artifact",
+                    "blooming_metal_artifact",
+                    "poor_contrast",
+                    "noise_blur",
+                    "cpr_geometry_coverage",
+                    "interpretive_uncertainty",
+                    "other"
+                  ]
+                },
+                "uniqueItems": true
+              },
+              "s_peak_stenosis_mm": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              }
+            },
+            "required": [
+              "finding_status",
+              "plaque_composition",
+              "stenosis_grade",
+              "confidence"
+            ]
+          },
+          "native_anchors": {
+            "type": [
+              "array",
+              "object"
+            ]
+          },
+          "provenance": {
+            "type": "object"
+          },
+          "review_required": {
+            "type": "boolean"
+          },
+          "review_status": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "annotation_id",
+          "label_group_id",
+          "path_id",
+          "canonical_anatomy_id",
+          "anatomical_segment",
+          "s_start_mm",
+          "s_end_mm",
+          "label",
+          "native_anchors",
+          "provenance",
+          "review_required"
+        ]
+      },
+      "minItems": 0
+    },
+    "markers": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "minItems": 0
+    },
+    "rereview_intervals": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "minItems": 0
+    },
+    "view_state": {
+      "type": "object"
+    },
+    "case_status": {
+      "enum": [
+        "in_progress",
+        "complete",
+        "complete_with_gaps"
+      ]
+    },
+    "completion": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "case_id",
+    "reader_id",
+    "revision",
+    "source",
+    "annotations",
+    "markers",
+    "rereview_intervals",
+    "view_state",
+    "case_status"
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Coronary Annotation Studio batch-export 1.0",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "cas-batch-export-1.0"
+    },
+    "reader_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+          },
+          "annotations": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Relative portable asset path, contained within the case directory. Runtime validation rejects escapes/drives."
+          }
+        },
+        "required": [
+          "case_id",
+          "annotations"
+        ]
+      },
+      "minItems": 0
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Relative portable asset path, contained within the case directory. Runtime validation rejects escapes/drives."
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "path",
+          "bytes",
+          "sha256"
+        ]
+      },
+      "minItems": 0
+    }
+  },
+  "required": [
+    "schema_version",
+    "reader_id",
+    "cases",
+    "files"
+  ]
+}
