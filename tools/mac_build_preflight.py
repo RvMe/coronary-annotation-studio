@@ -11,6 +11,7 @@ import platform
 import re
 import sys
 from datetime import datetime,timezone
+from audit_macos import deployment_target
 
 PINS={'PySide6':'6.9.3','PySide6_Essentials':'6.9.3','PySide6_Addons':'6.9.3','shiboken6':'6.9.3',
       'SimpleITK':'2.5.2','numpy':'2.2.6','scipy':'1.15.3','pynrrd':'1.1.3','PyInstaller':'6.18.0'}
@@ -37,7 +38,7 @@ def wheel_supports(filename,architecture):
     if tags==['any']:return True
     for tag in tags:
         match=re.fullmatch(r'macosx_(\d+)_(\d+)_(arm64|x86_64|universal2)',tag)
-        if match and match.group(3) in {architecture,'universal2'} and tuple(map(int,match.group(1,2)))<=(12,0):return True
+        if match and match.group(3) in {architecture,'universal2'} and tuple(map(int,match.group(1,2)))<=tuple(map(int,deployment_target(architecture).split('.'))):return True
     return False
 
 
@@ -73,7 +74,7 @@ def main():
         compile((root/'tools/macos.spec').read_text(),'macos.spec','exec')
         resources=('cas_zh_CN.ts','cas_zh_CN.qm','legacy_error_sources.json')
         if not all((root/'annotation_app/translations'/name).is_file() for name in resources):raise ValueError('Translation resource missing')
-        report.update(status='PASS',deployment_target='12.0',signature_intent='ordinary ad-hoc',notarized=False,
+        report.update(status='PASS',deployment_target=deployment_target(args.architecture),signature_intent='ordinary ad-hoc',notarized=False,
             pending=['integration snapshot freeze','PyInstaller per architecture','Mach-O dependencies/minimum OS/signatures',
                      'frozen create/resume workflow','release ZIP extraction and workflow','third-party license assembly'])
     except Exception as exc:report['errors'].append(str(exc))

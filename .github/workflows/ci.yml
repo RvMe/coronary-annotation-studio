@@ -17,6 +17,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install .
+      - run: python -m pip install -r requirements-build.txt
       - run: python -m unittest discover -s tests -v
       - run: python -m annotation_app validate examples/synthetic-v1
   docs:

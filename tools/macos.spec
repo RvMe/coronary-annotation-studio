@@ -1,12 +1,15 @@
 """Thin Mac target; execute only after both preflight and integration gates pass."""
-import os
+import os,sys
 from pathlib import Path
+sys.path.insert(0,str(Path(SPECPATH)))
+from audit_macos import deployment_target
 
 project=Path(SPECPATH).parent
 architecture=os.environ['CAS_BUILD_ARCH']
 if architecture not in {'arm64','x86_64'}:
     raise ValueError('CAS_BUILD_ARCH must select exactly arm64 or x86_64')
 version='0.1.0'
+minimum_os=deployment_target(architecture)
 a=Analysis([str(project/'annotation_app/launch.py')],pathex=[str(project)],
     binaries=[],datas=[(str(project/'annotation_app/translations'),'annotation_app/translations')],
     hiddenimports=[],hookspath=[],hooksconfig={},noarchive=False,
@@ -36,5 +39,5 @@ exe=EXE(pyz,a.scripts,[],exclude_binaries=True,name='CoronaryAnnotationStudio',d
 coll=COLLECT(exe,a.binaries,a.datas,strip=False,upx=False,name='CoronaryAnnotationStudio')
 app=BUNDLE(coll,name='Coronary Annotation Studio.app',bundle_identifier='org.coronaryannotationstudio.desktop',
            version=version,info_plist={'CFBundleDisplayName':'Coronary Annotation Studio',
-           'CFBundleShortVersionString':version,'CFBundleVersion':version,'LSMinimumSystemVersion':'12.0',
+           'CFBundleShortVersionString':version,'CFBundleVersion':version,'LSMinimumSystemVersion':minimum_os,
            'NSHighResolutionCapable':True,'NSHumanReadableCopyright':'Coronary Annotation Studio contributors — Apache-2.0'})

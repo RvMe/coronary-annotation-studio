@@ -7,6 +7,7 @@ import os
 import platform
 import subprocess
 import sys
+import sysconfig
 import zipfile
 from run_workflow_gate import run_workflow
 
@@ -24,6 +25,7 @@ def main():
         seen=set()
         for item in z.infolist():
             name=PurePosixPath(item.filename)
+            if item.orig_filename != item.filename:raise ValueError('ZIP member was normalized or truncated')
             if name.is_absolute() or '..' in name.parts or ':' in item.filename or '\\' in item.filename or item.filename.casefold() in seen:
                 raise ValueError('Unsafe or duplicate ZIP path')
             seen.add(item.filename.casefold())
@@ -44,7 +46,7 @@ def main():
     workflow=run_workflow([exe],root/'examples/synthetic-v1',out/'workflow',cwd=exe.parent,
                           env=env,qt_platform='windows',frozen=True)
     report={'status':'PASS','archive_sha256':sha(a.archive),'archive_bytes':a.archive.stat().st_size,'source':'final ZIP re-extraction',
-            'platform':platform.platform(),'architecture':platform.machine(),'qt_platform':'windows',
+            'platform':platform.platform(),'architecture':platform.machine() or sysconfig.get_platform(),'qt_platform':'windows',
             'sessions':workflow['sessions'],'clinical_acceptance':False,'clean_machine_acceptance':False}
     (out/'zip-verification.json').write_text(json.dumps(report,indent=2),encoding='utf-8');print(json.dumps(report,indent=2))
 

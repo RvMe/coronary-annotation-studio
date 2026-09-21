@@ -12,6 +12,9 @@ Mac：将 `Coronary Annotation Studio.app` 放到本机目录或 Applications，
 [Apple 说明](https://support.apple.com/en-us/102445)。不需要关闭系统安全保护。
 实际测试过的系统版本以[验收报告](../acceptance.md)为准；Apple Silicon 上的 Rosetta 测试会明确标识，不能替代 Intel 实机验收。
 
+目前实际运行测试覆盖 Windows 11 Pro x64，以及 Mac mini 上的 macOS 26.2（arm64 原生与 x86_64 Rosetta）。
+Mac 包的最低部署版本为 arm64 12.3、x86_64 12.0；这些较旧系统尚未做实际运行验收。
+
 从源码启动：
 
 ```console

@@ -5,8 +5,10 @@ problem. Include the application version, OS/architecture and a minimal syntheti
 reproduction. Never upload patient images, labels containing identifiers, private
 database files, access credentials or an unredacted diagnostic log.
 
-Install from source as described in the README. Run `python -m unittest discover
--s tests -v`. Add meaningful tests for changed coordinate transforms, annotation
+Install from source as described in the README, then install the test/build tools
+with `python -m pip install -r requirements-build.txt`. Run
+`python -m unittest discover -s tests -v`. The native macOS `ditto` check is
+explicitly skipped on other systems. Add meaningful tests for changed coordinate transforms, annotation
 round trips, recovery and project/reader isolation. UI changes must be checked in
 both English and Simplified Chinese, including a draft present during switching.
 See [build and verification instructions](docs/build.md) for release preparation.

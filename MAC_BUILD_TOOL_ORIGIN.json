@@ -1,0 +1,27 @@
+{
+  "schema_version": "cas-mac-build-tool-origin-1.0",
+  "origin": "Authorized predecessor Mac binary-audit helper; no repository history or data",
+  "files": [
+    {
+      "source_relative_path": "annotation_app/tools/audit_macos.py",
+      "source_bytes": 15349,
+      "source_sha256": "5e36e247b32f4c1747749cf2bd267397312fb8d8c856d9c47e1918969f8c7b98",
+      "target_path": "tools/audit_macos.py",
+      "changes": "Neutral audit schema and description; checks preserved. Coordinator-selected arm64 target12.3 and Intel12.0; exact Info.plist target check. Original failed12.0 arm64 audit retained."
+    },
+    {
+      "source_relative_path": "annotation_app/tools/prepare_python_licenses.py",
+      "source_bytes": 10347,
+      "source_sha256": "641486241f48a941ab00d3ba0eec0efa0ffae943b3576a4f5fcb193f3cbb8425",
+      "target_path": "tools/prepare_mac_python_licenses.py",
+      "changes": "Neutral network agent/temp prefix. Existing provenance schema preserved for immutable license proof compatibility. Optional isolated zstandard decompression fallback with expansion cap; exact original archive provenance is retained."
+    },
+    {
+      "source_relative_path": "annotation_app/tools/assemble_macos.py",
+      "source_bytes": 17663,
+      "source_sha256": "51403b844a4fe56112d96762fbf7dd8e77dccafaf8d96286df1ef28cf9ccaf56",
+      "target_path": "tools/mac_licenses.py",
+      "changes": "Extract license collection and exact installed-native/provenance checks; use shared CAS copy/hash helpers and strict member paths; reject content-address collisions. Public bootstrap provenance is a path-sanitized derivative linked by original SHA; immutable local and vendor license proofs retained."
+    }
+  ]
+}

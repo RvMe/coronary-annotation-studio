@@ -21,6 +21,11 @@ workflow if macOS blocks the initial open. See
 No system security feature needs to be disabled. A Rosetta test on Apple Silicon
 is identified as Rosetta in the report; it is not an Intel hardware test.
 
+Actual tested systems: Windows 11 Pro x64 and macOS 26.2 on Apple Silicon, with
+x86_64 also executed under Rosetta. Mac deployment minima are 12.3 (arm64) and
+12.0 (x86_64); those older systems have not been tested. See the
+[acceptance report](acceptance.md) for final artifact status and evidence.
+
 The package includes a synthetic example, license material, dependency inventory
 and checksums. No external image download is needed for the example.
 

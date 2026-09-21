@@ -70,6 +70,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md), [known limitations](docs/limitations.md)
 and [CITATION.cff](CITATION.cff). Public tests use synthetic data only:
 
 ```console
+python -m pip install -r requirements-build.txt
 python -m unittest discover -s tests -v
 ```
 

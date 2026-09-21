@@ -9,6 +9,7 @@ import zipfile
 from release_licenses import (digest,write_json,file_record,copy_checked,environment_inventory,
     audit_qt_binaries,bind_qt_to_build_environment,collect_wheel_licenses,collect_conda_runtime_licenses,collect_qt_sources)
 from verify_compiled_sources import verify as verify_compiled
+from public_macos_evidence import audit_compiled_filenames, audit_public_text, host_roots
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--app',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--source-cache',type=Path,required=True);a=p.parse_args()
@@ -21,6 +22,9 @@ def main():
     compiled=verify_compiled(app/'CoronaryAnnotationStudio.exe',root)
     if compiled['status']!='PASS':raise ValueError('Final executable differs from reviewed application source')
     write_json(payload/'COMPILED-SOURCE-VERIFICATION.json',compiled)
+    filenames=audit_compiled_filenames(app/'CoronaryAnnotationStudio.exe',app.rglob('base_library.zip'))
+    if filenames['status']!='PASS':raise ValueError('Compiled code contains private source paths; rebuild required')
+    write_json(payload/'COMPILED-FILENAME-AUDIT.json',filenames)
     audit=audit_qt_binaries(app);bind_qt_to_build_environment(app,audit)
     inventory=environment_inventory();inventory['qt_binary_audit']=audit
     inventory['wheel_license_records']=collect_wheel_licenses(payload,inventory)
@@ -47,6 +51,7 @@ def main():
     if not sourcefiles:raise ValueError('No reviewed source staged in Git')
     revision=subprocess.run(['git','rev-parse','HEAD'],cwd=root,check=True,capture_output=True,text=True).stdout.strip()
     write_json(payload/'SOURCE-VERSION.json',{'version':'0.1.0','git_revision':revision,'source_files':sourcefiles})
+    audit_public_text(payload,host_roots(SOURCE_ROOT=root,RELEASE_ROOT=out,BUILD_APP=a.app))
     write_json(payload/'FILE-MANIFEST.json',{'schema_version':'cas-release-files-1.0','files':[file_record(p,payload) for p in sorted(payload.rglob('*')) if p.is_file()]})
     archive=out/(payload.name+'.zip')
     with zipfile.ZipFile(archive,'x',compression=zipfile.ZIP_DEFLATED,compresslevel=6) as z:
