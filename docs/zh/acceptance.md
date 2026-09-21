@@ -22,4 +22,8 @@ Mac 使用 ad-hoc 签名，未做 Developer ID 公证；Windows 程序未作 Aut
 这些结果是技术验收，不代表临床或医生验收。
 
 完整哈希及结构化记录见[验收 JSON](../release-acceptance.json)，详细说明见[英文验收记录](../acceptance.md)。
-本地准备已经完成；GitHub 登录后再执行托管 CI、发布、文档网站部署和公开下载哈希核对。
+[GitHub 托管 CI](https://github.com/RvMe/coronary-annotation-studio/actions/runs/35636962867)
+已在 Windows、Mac arm64 和 Mac Intel runner 上通过，每组运行 201 项测试（Windows 跳过 1 项 macOS 专属测试）。
+双语文档已经部署到 [GitHub Pages](https://rvme.github.io/coronary-annotation-studio/)。
+公开下载文件的核对结果记录在[发布附件中的最新验收 JSON](https://github.com/RvMe/coronary-annotation-studio/releases/download/v0.1.0/RELEASE-ACCEPTANCE.json)。
+托管 runner 的源码测试不替代上述最终程序 ZIP 的本地窗口验收。

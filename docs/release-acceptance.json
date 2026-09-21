@@ -2,7 +2,7 @@
   "schema_version": "cas-release-acceptance-1.0",
   "version": "0.1.0",
   "status": "LOCAL_TECHNICAL_ACCEPTANCE_PASS",
-  "publication_status": "PENDING_GITHUB_AUTHENTICATION",
+  "publication_status": "PENDING_PUBLIC_DOWNLOAD_VERIFICATION",
   "source": {
     "git_revision": "5f9ec6288f2fd1eafc9cb1c8b230a2b6121a9428",
     "manifest_sha256": "3af7914be354fc4a2cf4f142fd7ee50d4dff86d59dab2fad877a38c77ffe861e",
@@ -220,9 +220,41 @@
     "original_report_sha256": "6dd1998f9ef9ebf1408b72e2a446780cba50a126d89f001af6467c342173b4c3"
   },
   "publication": {
-    "github_repository": null,
-    "hosted_ci": null,
-    "pages": null,
+    "github_repository": "https://github.com/RvMe/coronary-annotation-studio",
+    "release": "https://github.com/RvMe/coronary-annotation-studio/releases/tag/v0.1.0",
+    "hosted_ci": {
+      "status": "PASS",
+      "url": "https://github.com/RvMe/coronary-annotation-studio/actions/runs/35636962867",
+      "git_revision": "46bd9082efc0b5b93d25dabd707591c27cbd9c55",
+      "jobs": [
+        {
+          "name": "docs",
+          "conclusion": "success",
+          "url": "https://github.com/RvMe/coronary-annotation-studio/actions/runs/35636962867/job/106456632317"
+        },
+        {
+          "name": "test (macos-15-intel)",
+          "conclusion": "success",
+          "url": "https://github.com/RvMe/coronary-annotation-studio/actions/runs/35636962867/job/106456632895"
+        },
+        {
+          "name": "test (windows-latest)",
+          "conclusion": "success",
+          "url": "https://github.com/RvMe/coronary-annotation-studio/actions/runs/35636962867/job/106456632903"
+        },
+        {
+          "name": "test (macos-15)",
+          "conclusion": "success",
+          "url": "https://github.com/RvMe/coronary-annotation-studio/actions/runs/35636962867/job/106456632937"
+        }
+      ]
+    },
+    "pages": {
+      "status": "PASS",
+      "url": "https://rvme.github.io/coronary-annotation-studio/",
+      "deployment_run": "https://github.com/RvMe/coronary-annotation-studio/actions/runs/35636962645",
+      "git_revision": "46bd9082efc0b5b93d25dabd707591c27cbd9c55"
+    },
     "public_download_hashes": null
   },
   "limits": {

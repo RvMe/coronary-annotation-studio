@@ -15,8 +15,13 @@ The live Slicer mapping's independent maximum error was 0.009696 native voxel,
 below the preset 0.1 limit. Final saved-anchor recovery error was 0.0 voxel.
 
 See the [machine-readable acceptance and archive hashes](release-acceptance.json).
-GitHub authentication, hosted CI, Pages deployment and public download checks
-remain the publication steps; the local technical gates are complete.
+The [hosted CI run](https://github.com/RvMe/coronary-annotation-studio/actions/runs/35636962867)
+also passed on Windows, macOS arm64 and macOS Intel runners, with 201 tests per
+runner (one macOS-only test skipped on Windows). The bilingual documentation is
+deployed on [GitHub Pages](https://rvme.github.io/coronary-annotation-studio/).
+The [release's acceptance record](https://github.com/RvMe/coronary-annotation-studio/releases/download/v0.1.0/RELEASE-ACCEPTANCE.json)
+records publication-time public download verification. Hosted source tests do not
+replace final program ZIP testing on the local machines described above.
 
 ## Source-stage evidence
 
