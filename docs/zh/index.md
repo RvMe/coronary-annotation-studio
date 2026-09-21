@@ -13,7 +13,7 @@
 - [安装与快速入门](quickstart.md)
 - [数据格式与 Slicer 接入](data-format.md)
 - [旧版导入与故障排查](troubleshooting.md)
-- [实际验收记录（英文）](../acceptance.md)
+- [实际验收记录](acceptance.md)
 - [English documentation](../index.md)
 
 不同项目使用独立数据库。每位读者的记录独立保存。未标注区域不会被当作阴性，完成状态也不等于裁决、临床认可或训练准入。

@@ -48,6 +48,8 @@ real patient data and does not establish diagnostic accuracy.
 For standalone Windows and macOS packages, see [installation](docs/install.md).
 Binary availability and tested systems are recorded in the release acceptance
 report; a build target is not a claim that every older system was tested.
+See the [final local acceptance record](docs/acceptance.md) and its
+[machine-readable archive hashes](docs/release-acceptance.json).
 
 ## Bring your own CPR
 

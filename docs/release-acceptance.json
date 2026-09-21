@@ -1,0 +1,287 @@
+{
+  "schema_version": "cas-release-acceptance-1.0",
+  "version": "0.1.0",
+  "status": "LOCAL_TECHNICAL_ACCEPTANCE_PASS",
+  "publication_status": "PENDING_GITHUB_AUTHENTICATION",
+  "source": {
+    "git_revision": "5f9ec6288f2fd1eafc9cb1c8b230a2b6121a9428",
+    "manifest_sha256": "3af7914be354fc4a2cf4f142fd7ee50d4dff86d59dab2fad877a38c77ffe861e",
+    "reviewed_files": 126,
+    "application_runtime_revision": "bdc2015a44928fd11a723344aaf72c20edff71ae"
+  },
+  "windows": {
+    "archive": "CoronaryAnnotationStudio-v0.1.0-windows-x64.zip",
+    "bytes": 171076656,
+    "sha256": "2b39a31c8a9f9d03d73f764efedb4f0422ce967672929b388a3b07eaacb22d7f",
+    "status": "PASS",
+    "tested_os": "Windows 11 Pro x64 build 26200",
+    "qt_platform": "windows",
+    "workflow_sessions": [
+      {
+        "phase": "create",
+        "exit_code": 0,
+        "checks": 25,
+        "report_sha256": "09e30d7ef195ac563d1e1c262a18b03c5a926a3a59f649ecad16f4dfefdfe4dd"
+      },
+      {
+        "phase": "resume",
+        "exit_code": 0,
+        "checks": 33,
+        "report_sha256": "26cd566aab392c1bd43993b38039837f98398c91b03021c41280d08ebd73787e"
+      }
+    ],
+    "original_zip_verification_sha256": "554347d6ace9b5351e74693a772ccfe694363cfbee4ecb0e3d4bbdc802c24a83",
+    "regression": {
+      "status": "PASS",
+      "run": 201,
+      "failures": 0,
+      "errors": 0,
+      "skipped": [
+        {
+          "test": "test_native_zip_preserves_modes_links_and_refuses_overwrite (tests.test_mac_release_tools.MacReleaseTools)",
+          "reason": "Native ditto test requires macOS"
+        }
+      ],
+      "python": "3.10.19 | packaged by conda-forge | (main, Oct 22 2025, 22:23:22) [MSC v.1944 64 bit (AMD64)]",
+      "platform": "Windows-10-10.0.26200-SP0",
+      "machine": "win-amd64",
+      "qt_platform_requested": "offscreen",
+      "data": "synthetic only",
+      "utc": "2026-09-21T14:04:14.724365+00:00",
+      "clinical_acceptance": false
+    },
+    "regression_report_sha256": "7a310cd66f24a5596646d9ee5e5e0c8fcec66cc72cdf685245e57a8ecb7b0018",
+    "authenticode_signature": "not signed"
+  },
+  "macos": {
+    "arm64": {
+      "architecture": "arm64",
+      "deployment_target": "12.3",
+      "archive": {
+        "bytes": 175372177,
+        "crc_verified": true,
+        "name": "CoronaryAnnotationStudio-v0.1.0-macos-arm64.zip",
+        "native_ditto": true,
+        "reextracted_inventory_equal": true,
+        "sha256": "9d3b8985614bde4afb4d4f66d6016286053720492fdafede466f84313aa08abc"
+      },
+      "macho_count": 131,
+      "all_macho_thin_architecture": "arm64",
+      "ad_hoc_strict_signature": "PASS",
+      "compiled_source": {
+        "status": "PASS",
+        "modules": 22
+      },
+      "embedded_filename_audit": {
+        "status": "PASS",
+        "module_count": 831,
+        "code_objects": 31927
+      },
+      "unit_tests": {
+        "run": 201,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "qt_platform": "offscreen"
+      },
+      "Cocoa_source_layout_assertions": 237,
+      "final_zip_Cocoa_workflow": [
+        {
+          "phase": "create",
+          "checks": 25,
+          "status": "PASS",
+          "exit_code": 0,
+          "original_report_sha256": "c6291c3de4bc857ab6372ec48a5f656f9597f592e8d2357888eec174a179cc9c",
+          "saved_anchor_max_error_voxel": null
+        },
+        {
+          "phase": "resume",
+          "checks": 33,
+          "status": "PASS",
+          "exit_code": 0,
+          "original_report_sha256": "4ef0b7503e221c36d086c86cd6d086a06505210620f0c94250e300ba591aec89",
+          "saved_anchor_max_error_voxel": 0.0
+        }
+      ],
+      "direct_app_Cocoa_bundled_fixture_and_live_Slicer_fixture": "PASS_CREATE25_RESUME33",
+      "execution": {
+        "execution_mode": "native_arm64",
+        "hardware_architecture": "arm64",
+        "macOS": "26.2",
+        "process_architecture": "arm64",
+        "rosetta_translated": false
+      },
+      "assembly_original_report_sha256": "a9321fc1ba0ee953d2d7920c48a4959335dcf1057f633f081cc5b7d9b1d96728",
+      "final_zip_verification_original_sha256": "83b76632248651159b1f4ac3c08f8660af6c07ce012d5b94661ab8e32f85fb23"
+    },
+    "x86_64": {
+      "architecture": "x86_64",
+      "deployment_target": "12.0",
+      "archive": {
+        "bytes": 202414854,
+        "crc_verified": true,
+        "name": "CoronaryAnnotationStudio-v0.1.0-macos-x86_64.zip",
+        "native_ditto": true,
+        "reextracted_inventory_equal": true,
+        "sha256": "a033200024bcdeefd765109864b51287649e524e824910063b8ec6b11db58332"
+      },
+      "macho_count": 131,
+      "all_macho_thin_architecture": "x86_64",
+      "ad_hoc_strict_signature": "PASS",
+      "compiled_source": {
+        "status": "PASS",
+        "modules": 22
+      },
+      "embedded_filename_audit": {
+        "status": "PASS",
+        "module_count": 831,
+        "code_objects": 31927
+      },
+      "unit_tests": {
+        "run": 201,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "qt_platform": "offscreen"
+      },
+      "Cocoa_source_layout_assertions": 237,
+      "final_zip_Cocoa_workflow": [
+        {
+          "phase": "create",
+          "checks": 25,
+          "status": "PASS",
+          "exit_code": 0,
+          "original_report_sha256": "e1b7906e82f868784330d56e09fcf65fbf13040a68b31911dbf100e1599d4f87",
+          "saved_anchor_max_error_voxel": null
+        },
+        {
+          "phase": "resume",
+          "checks": 33,
+          "status": "PASS",
+          "exit_code": 0,
+          "original_report_sha256": "30274a0ac1f4e888b18d334754cb9333f1986fc822b1c2018cee15f38588fd86",
+          "saved_anchor_max_error_voxel": 0.0
+        }
+      ],
+      "direct_app_Cocoa_bundled_fixture_and_live_Slicer_fixture": "PASS_CREATE25_RESUME33",
+      "execution": {
+        "execution_mode": "rosetta2_translated_x86_64",
+        "hardware_architecture": "arm64",
+        "macOS": "26.2",
+        "process_architecture": "x86_64",
+        "rosetta_translated": true
+      },
+      "assembly_original_report_sha256": "0bfa96924358498e11c6ba4bce42eb14a7b4921ed9102ad2977a4fa7fdf0cea9",
+      "final_zip_verification_original_sha256": "e8ebc2b81d11faf881cd29494071d72c31578e10f7819bd998b0e22a3f425a48"
+    }
+  },
+  "slicer_interoperability": {
+    "status": "PASS",
+    "slicer_version": "5.12.4",
+    "execution": "x86_64 under Rosetta on macOS 26.2",
+    "synthetic_only": true,
+    "source_sha256": "4caf302d77c053b1da8d69dc82173495ae7a0b42b1c3a9188fecce9359a34000",
+    "exporter_validation": {
+      "schema_version": "cas-slicer-validation-1.0",
+      "slicer_version": "5.12.4",
+      "status": "PASS",
+      "paths": [
+        {
+          "path_id": "synthetic-curved-path",
+          "mapping_direction": "from_parent",
+          "sample_count": 12057,
+          "maximum_native_continuous_index_error_voxel": 0.008867953543317958,
+          "limit_voxel": 0.1,
+          "status": "PASS",
+          "sampling": "12000 seeded random subvoxels, all centers/half-slices and volume corners"
+        }
+      ],
+      "synthetic": true,
+      "meaning": "Sampled geometry agreement only; no reader/clinical acceptance"
+    },
+    "independent_comparison": {
+      "samples": 6000,
+      "maximum_native_continuous_index_error_voxel": 0.009695938992607876,
+      "limit_voxel": 0.1,
+      "best_affine_residual_voxel": 0.37010430890802654,
+      "mapping_direction": "from_parent",
+      "spacing_uv_mm": [
+        0.45,
+        0.7
+      ],
+      "native_spacing_mm": [
+        0.8,
+        0.9,
+        1.2
+      ],
+      "native_rotation_degrees": 23,
+      "transform_class": "vtkThinPlateSplineTransform"
+    },
+    "original_report_sha256": "6dd1998f9ef9ebf1408b72e2a446780cba50a126d89f001af6467c342173b4c3"
+  },
+  "publication": {
+    "github_repository": null,
+    "hosted_ci": null,
+    "pages": null,
+    "public_download_hashes": null
+  },
+  "limits": {
+    "clinical_acceptance": false,
+    "physical_intel_hardware_tested": false,
+    "older_macos_runtime_tested": false,
+    "developer_id_notarized": false,
+    "separate_clean_windows_machine_tested": false
+  },
+  "verification_date": "2026-09-21",
+  "mac_original_acceptance_sha256": "dea7e7ac7d33626e4e714426d0035e0e4d68c8ff176b95311fe5db36ddc5f6f0",
+  "mac_build_source": {
+    "git_revision": "b9aaa80ad25f8db56bfb6fd3353d5aacac902130",
+    "manifest_sha256": "1649484f837420aec57e6709efda12776359c6bedcf48965d295a5a4dbbdaa96"
+  },
+  "cross_host_receipt": {
+    "status": "PASS",
+    "mechanism": "OneDrive immutable artifact manifest plus receiving-host SHA-256 receipt",
+    "program_manifest_sha256": "a1a624e807a00d2f7764cb43eb25f5b0095e2883e73c33cb714effa687d8b281",
+    "evidence_manifest_sha256": "044d0d71d13b3b8a5b7ab55f22d492fd0692b2916f835117f00668dbc7665e1d",
+    "Mac_program_ZIPs_remained_opaque_on_Windows": true
+  },
+  "privacy_audit": {
+    "tracked_source_files": 126,
+    "private_path_or_credential_findings": 0,
+    "new_project_history_commits": 7,
+    "unique_history_blobs": 181,
+    "original_research_repository_history_copied": false
+  },
+  "documentation": {
+    "languages": [
+      "en",
+      "zh_CN"
+    ],
+    "mkdocs_strict_build": "PASS",
+    "local_links_checked": 308,
+    "broken_local_links": 0,
+    "offline_html_links_checked": 308
+  },
+  "artifacts": [
+    {
+      "filename": "CoronaryAnnotationStudio-v0.1.0-macos-arm64.zip",
+      "bytes": 175372177,
+      "sha256": "9d3b8985614bde4afb4d4f66d6016286053720492fdafede466f84313aa08abc"
+    },
+    {
+      "filename": "CoronaryAnnotationStudio-v0.1.0-macos-x86_64.zip",
+      "bytes": 202414854,
+      "sha256": "a033200024bcdeefd765109864b51287649e524e824910063b8ec6b11db58332"
+    },
+    {
+      "filename": "CoronaryAnnotationStudio-v0.1.0-source.zip",
+      "bytes": 2211941,
+      "sha256": "90d3583952ace2d7a8a108bb640f6e179c454ca156c32e1b48b7af97d33db640"
+    },
+    {
+      "filename": "CoronaryAnnotationStudio-v0.1.0-windows-x64.zip",
+      "bytes": 171076656,
+      "sha256": "2b39a31c8a9f9d03d73f764efedb4f0422ce967672929b388a3b07eaacb22d7f"
+    }
+  ]
+}

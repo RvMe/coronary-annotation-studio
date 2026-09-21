@@ -24,6 +24,7 @@ nav:
       - 安装与使用: zh/quickstart.md
       - 数据格式与 Slicer: zh/data-format.md
       - 旧版导入与故障排查: zh/troubleshooting.md
+      - 验收记录: zh/acceptance.md
 markdown_extensions:
   - tables
 extra_css:

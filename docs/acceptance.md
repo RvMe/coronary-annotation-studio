@@ -1,5 +1,25 @@
 # Release acceptance evidence
 
+## Final local artifact acceptance
+
+All three v0.1.0 program ZIPs passed their own final re-extraction workflow on
+2026-09-21. Windows x64 ran on Windows 11 Pro; Mac arm64 ran natively and Mac
+x86_64 ran under Rosetta on the connected Apple Silicon Mac mini, macOS 26.2.
+Each program completed 25 create-session checks and 33 independent resume/export
+checks. Both Mac archives arrived with matching receiving-host SHA-256 receipts.
+
+The full synthetic suite ran 201 tests per platform: 200 passed on Windows with
+one explicit native-macOS packaging skip; all 201 passed on each Mac architecture.
+Each Mac app passed architecture/dependency/signature checks for 131 Mach-O files.
+The live Slicer mapping's independent maximum error was 0.009696 native voxel,
+below the preset 0.1 limit. Final saved-anchor recovery error was 0.0 voxel.
+
+See the [machine-readable acceptance and archive hashes](release-acceptance.json).
+GitHub authentication, hosted CI, Pages deployment and public download checks
+remain the publication steps; the local technical gates are complete.
+
+## Source-stage evidence
+
 **Source and integration evidence captured on 2026-09-21.** This document is
 included in the source snapshot used to assemble the programs. Final immutable
 archive status and SHA-256 values are distributed separately as
