@@ -5,6 +5,10 @@ three-dimensional curved planar reformats (CPRs), with native CT linkage.
 
 **English is the default. Switch to 简体中文 at any time.**
 
+[Download v0.1.0](https://github.com/RvMe/coronary-annotation-studio/releases/tag/v0.1.0) ·
+[Documentation](https://rvme.github.io/coronary-annotation-studio/) ·
+[中文网站](https://rvme.github.io/coronary-annotation-studio/zh/)
+
 ![Coronary Annotation Studio with a synthetic example](docs/images/studio-en.png)
 
 *Actual application window with a mathematical phantom; no patient data.*

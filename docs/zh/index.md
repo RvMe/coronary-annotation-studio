@@ -7,6 +7,9 @@
 面向已有三维冠脉 CPR 的离线病变区间标注、复核与可靠导出工具。
 界面默认英文，可在运行中切换简体中文并记住选择。
 
+[下载 v0.1.0 安装包与校验清单](https://github.com/RvMe/coronary-annotation-studio/releases/tag/v0.1.0) ·
+[GitHub 源码](https://github.com/RvMe/coronary-annotation-studio)
+
 核心流程是：导入带有原始 CT 和空间映射的 CPR → 标注病变区间 → 检查缺口和待复核内容 → 保存、恢复和导出。
 本工具不提取中心线、不生成 CPR、不自动诊断，也不进行精细轮廓分割。
 

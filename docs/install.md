@@ -4,6 +4,8 @@
 
 ## Standalone packages
 
+[Download v0.1.0 and checksums from GitHub Releases](https://github.com/RvMe/coronary-annotation-studio/releases/tag/v0.1.0).
+
 Choose the release ZIP matching your system: Windows x64, macOS Apple Silicon
 arm64, or macOS Intel x86_64. Compare its SHA-256 with the release manifest before
 extracting. Keep the application folder intact; the executable depends on its

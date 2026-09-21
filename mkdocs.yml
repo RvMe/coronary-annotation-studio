@@ -1,4 +1,7 @@
 site_name: Coronary Annotation Studio
+site_url: https://rvme.github.io/coronary-annotation-studio/
+repo_url: https://github.com/RvMe/coronary-annotation-studio
+repo_name: GitHub
 site_description: Offline coronary CPR interval annotation and reliable export
 docs_dir: docs
 site_dir: site

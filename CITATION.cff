@@ -3,6 +3,9 @@ message: "Please cite the software version used in your research and report your
 title: Coronary Annotation Studio
 type: software
 version: 0.1.0
+repository-code: https://github.com/RvMe/coronary-annotation-studio
+url: https://rvme.github.io/coronary-annotation-studio/
+date-released: 2026-09-21
 license: Apache-2.0
 authors:
   - name: Coronary Annotation Studio contributors
