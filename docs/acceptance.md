@@ -4,7 +4,7 @@ Status: **implementation and verification in progress; not yet published**.
 
 | Gate | Current evidence |
 | --- | --- |
-| Core/domain/storage/geometry regression | 152 synthetic tests passed on Windows, Python 3.10.19, 2026-09-21 |
+| Core/domain/storage/geometry regression | 153 synthetic tests passed without skips on Windows 11 Pro x64 build 26200, Python 3.10.19, 2026-09-21 |
 | Public package and legacy import | Synthetic validation, project isolation, offline export and unchanged legacy input hashes included in the test suite |
 | Windows bilingual/native UI | Pending integrated UI |
 | Mac arm64 Cocoa UI | Pending connected Mac work |

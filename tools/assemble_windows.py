@@ -8,6 +8,7 @@ import sys
 import zipfile
 from release_licenses import (digest,write_json,file_record,copy_checked,environment_inventory,
     audit_qt_binaries,bind_qt_to_build_environment,collect_wheel_licenses,collect_conda_runtime_licenses,collect_qt_sources)
+from verify_compiled_sources import verify as verify_compiled
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--app',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--source-cache',type=Path,required=True);a=p.parse_args()
@@ -15,6 +16,9 @@ def main():
     if out.exists():raise FileExistsError('Choose a new release output')
     payload=out/'CoronaryAnnotationStudio-v0.1.0-windows-x64';payload.mkdir(parents=True)
     app=payload/'app';shutil.copytree(a.app,app)
+    compiled=verify_compiled(app/'CoronaryAnnotationStudio.exe',root)
+    if compiled['status']!='PASS':raise ValueError('Final executable differs from reviewed application source')
+    write_json(payload/'COMPILED-SOURCE-VERIFICATION.json',compiled)
     audit=audit_qt_binaries(app);bind_qt_to_build_environment(app,audit)
     inventory=environment_inventory();inventory['qt_binary_audit']=audit
     inventory['wheel_license_records']=collect_wheel_licenses(payload,inventory)

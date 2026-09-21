@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import platform
 import sys
+import sysconfig
 import unittest
 from datetime import datetime,timezone
 
@@ -20,7 +21,7 @@ def main():
     (a.output/'tests.log').write_text(text.getvalue(),encoding='utf-8')
     report={'status':'PASS' if result.wasSuccessful() else 'FAIL','run':result.testsRun,'failures':len(result.failures),
             'errors':len(result.errors),'skipped':[{'test':str(t),'reason':r} for t,r in result.skipped],
-            'python':sys.version,'platform':platform.platform(),'machine':platform.machine(),
+            'python':sys.version,'platform':platform.platform(),'machine':platform.machine() or sysconfig.get_platform(),
             'qt_platform_requested':os.environ['QT_QPA_PLATFORM'],'data':'synthetic only',
             'utc':datetime.now(timezone.utc).isoformat(),'clinical_acceptance':False}
     (a.output/'tests.json').write_text(json.dumps(report,indent=2),encoding='utf-8');print(json.dumps(report,indent=2))

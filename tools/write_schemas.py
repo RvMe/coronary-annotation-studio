@@ -40,8 +40,8 @@ ANNOTATIONS=obj({"schema_version":{"const":"cas-annotations-1.0"},"case_id":ID,"
                  "annotations":array(ANNOTATION),"markers":array({"type":"object"}),"rereview_intervals":array({"type":"object"}),
                  "view_state":{"type":"object"},"case_status":enum('in_progress','complete','complete_with_gaps'),"completion":{"type":"object"}},
                 ['schema_version','case_id','reader_id','revision','source','annotations','markers','rereview_intervals','view_state','case_status'])
-EXPORT=obj({"schema_version":{"const":"cas-export-1.0"},"case_id":ID,"reader_id":TEXT,"revision":{"type":"integer","minimum":0},"files":array(FILE,3)})
-BATCH=obj({"schema_version":{"const":"cas-batch-export-1.0"},"reader_id":TEXT,"cases":array(obj({"case_id":ID,"annotations":PATH})),"files":array(FILE)})
+EXPORT=obj({"schema_version":{"const":"cas-export-1.0"},"project_id":ID,"case_id":ID,"reader_id":TEXT,"revision":{"type":"integer","minimum":0},"files":array(FILE,3)})
+BATCH=obj({"schema_version":{"const":"cas-batch-export-1.0"},"project_id":ID,"reader_id":TEXT,"cases":array(obj({"case_id":ID,"annotations":PATH})),"files":array(FILE)})
 
 def main():
     root=Path(__file__).resolve().parents[1]/'schemas';root.mkdir(exist_ok=True)

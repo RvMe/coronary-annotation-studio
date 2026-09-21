@@ -1,0 +1,12 @@
+body { background: #fff; color: #263645; line-height: 1.65; }
+.navbar { background: #172d3b !important; background-image: none !important; box-shadow: none; }
+.navbar-brand { font-weight: 600; font-size: 1.12rem; }
+h1, h2, h3 { color: #172d3b; font-weight: 600; line-height: 1.2; }
+h1 { font-size: clamp(1.9rem, 3vw, 2.65rem); margin-bottom: 1.1rem; }
+h2 { margin-top: 2rem; }
+a { color: #16736c; }
+a:hover { color: #105650; }
+.bs-sidebar .nav > li > a { color: #16736c; }
+pre { background: #f4f7f8; border: 1px solid #dbe4e8; padding: 1rem; }
+table { font-size: .95rem; }
+footer { color: #687b88; }

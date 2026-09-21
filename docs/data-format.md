@@ -95,6 +95,7 @@ must agree when records are reopened. Revisions and edit snapshots are audited.
 
 An export contains `annotations.json`, `annotations.csv`, `audit.jsonl` and a
 `cas-export-1.0` checksum manifest. Import requires all four files. CSV escapes
-spreadsheet formula prefixes while JSON retains exact values. A batch adds a
+spreadsheet formula prefixes while JSON retains exact values. CSV rows explicitly
+include project and geometry IDs, and checksum manifests retain project identity. A batch adds a
 `cas-batch-export-1.0` manifest hashing each exported file. Source images are never
 part of annotation exports.

@@ -263,6 +263,7 @@ class AnnotationStore:
         target.mkdir(parents=True, exist_ok=False)
         csv_buffer = io.StringIO(newline="")
         fields = ["case_id", "reader_id", "revision", "case_status", "case_completion_mode", "case_coverage_percent", "case_coverage_basis", "annotation_id", "label_group_id", "path_id", "canonical_anatomy_id", "anatomical_segment", "s_start_mm", "s_end_mm", "finding_status", "plaque_composition", "stenosis_grade", "confidence", "reason", "reason_codes_json", "s_peak_stenosis_mm", "review_required", "review_status", "effective_reader_review_required", "reader_review_reasons", "technical_qa_reasons", "label_scope", "training_segment_label_eligible", "native_anchors_json", "provenance_json"]
+        fields = ["project_id", "geometry_id"] + fields
         # These are an explicit completion-time assessment, not a guessed live
         # denominator. Legacy completion without a report stays blank. Editing
         # invalidates completion; never carry an old percentage into in-progress
@@ -276,6 +277,7 @@ class AnnotationStore:
         for annotation in state["annotations"]:
             record = {key: annotation.get(key, "") for key in fields}
             record.update({key: state[key] for key in ("case_id", "reader_id", "revision")})
+            record.update({key: state["source"].get(key, "") for key in ("project_id", "geometry_id")})
             record.update(case_status=state.get("case_status", "in_progress"),
                           case_completion_mode=completion.get("mode", ""),
                           case_coverage_percent=coverage.get("coverage_percent", ""),
@@ -305,7 +307,7 @@ class AnnotationStore:
             "audit.jsonl": ("".join(_json(row) + "\n" for row in audit)).encode("utf-8"),
         }
         manifest = {"schema_version": EXPORT_SCHEMA, "case_id": state["case_id"], "reader_id": reader_id,
-                    "revision": state["revision"], "files": []}
+                    "revision": state["revision"], "project_id": state["source"].get("project_id"), "files": []}
         for name, payload in files.items():
             _atomic_write(target / name, payload)
             manifest["files"].append({"path": name, "bytes": len(payload), "sha256": hashlib.sha256(payload).hexdigest()})
@@ -342,6 +344,8 @@ class AnnotationStore:
         for key in ("case_id", "reader_id", "revision"):
             if manifest.get(key) != imported[key]:
                 raise ValueError("Export manifest identity mismatch")
+        if manifest.get("project_id") != imported["source"].get("project_id"):
+            raise ValueError("Export manifest project identity mismatch")
         imported_audit = [json.loads(line) for line in checked["audit.jsonl"].decode("utf-8").splitlines() if line.strip()]
         for sequence, event in enumerate(imported_audit, start=1):
             if event.get("case_id") != imported["case_id"] or event.get("reader_id") != imported["reader_id"]:
@@ -383,6 +387,8 @@ class AnnotationStore:
             entries.append({"case_id": case_id, "annotations": exported.relative_to(root).as_posix()})
         manifest = {"schema_version": "cas-batch-export-1.0", "reader_id": reader_id, "cases": entries,
                     "files": [file_record(p, root) for p in sorted(root.rglob("*")) if p.is_file()]}
+        project = self.connection.execute("SELECT project_id FROM project_identity WHERE singleton=1").fetchone()
+        manifest["project_id"] = project[0] if project else None
         _atomic_write(root / "batch-manifest.json", (_json(manifest)+"\n").encode("utf-8"))
         return {"status": "PASS", "manifest": str(root/"batch-manifest.json"), "case_count": len(entries)}
 

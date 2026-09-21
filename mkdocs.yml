@@ -7,14 +7,17 @@ theme:
   locale: en
 nav:
   - Home: index.md
-  - Install: install.md
-  - Quick start: quickstart.md
-  - Data format: data-format.md
-  - Slicer adapter: slicer.md
-  - Legacy import: legacy.md
-  - Troubleshooting: troubleshooting.md
-  - Limitations: limitations.md
-  - Release evidence: acceptance.md
+  - Get started:
+      - Install: install.md
+      - Quick start: quickstart.md
+  - Data:
+      - Data format: data-format.md
+      - Slicer adapter: slicer.md
+      - Legacy import: legacy.md
+  - Reference:
+      - Troubleshooting: troubleshooting.md
+      - Limitations: limitations.md
+      - Release evidence: acceptance.md
   - 简体中文:
       - 概览: zh/index.md
       - 安装与使用: zh/quickstart.md
@@ -22,3 +25,5 @@ nav:
       - 旧版导入与故障排查: zh/troubleshooting.md
 markdown_extensions:
   - tables
+extra_css:
+  - stylesheets/studio.css

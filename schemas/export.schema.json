@@ -6,6 +6,10 @@
     "schema_version": {
       "const": "cas-export-1.0"
     },
+    "project_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+    },
     "case_id": {
       "type": "string",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
@@ -48,6 +52,7 @@
   },
   "required": [
     "schema_version",
+    "project_id",
     "case_id",
     "reader_id",
     "revision",

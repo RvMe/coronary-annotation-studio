@@ -78,6 +78,11 @@ in the package report; this is a sampled numerical check, not clinical QA.
             ijk=np.stack((x,y,np.full_like(x,k)),axis=-1)
             field[k]=mapped(ijk)*np.array([-1.,-1.,1.])
         centers=mapped(np.column_stack((np.full(n,(w-1)/2),np.full(n,(h-1)/2),np.arange(n))))
+        native_indices=centers@native_ras_to_index[:3,:3].T+native_ras_to_index[:3,3]
+        if not np.isfinite(field).all() or not np.isfinite(native_indices).all():
+            raise ValueError(f"{pid}: nonfinite native mapping")
+        if np.any(native_indices<-.5) or np.any(native_indices>np.array(native_array.shape[::-1])-.5):
+            raise ValueError(f"{pid}: path center outside native CT; check mapping direction and transform context")
         distance=np.r_[0.,np.cumsum(np.linalg.norm(np.diff(centers,axis=0),axis=1))]
         if np.any(np.diff(distance)<=1e-8):raise ValueError(f"{pid}: degenerate along-path mapping")
         # Deterministic random interior, every slice center, image corners and

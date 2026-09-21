@@ -1,5 +1,6 @@
 from copy import deepcopy
 import base64
+import csv
 import hashlib
 import json
 from pathlib import Path
@@ -87,8 +88,13 @@ class PublicPackageTests(unittest.TestCase):
         with AnnotationStore(db) as store:result=store.export_batch('A',self.root/'out')
         manifest=Path(result['manifest']);data=json.loads(manifest.read_text())
         self.assertEqual(result['case_count'],1)
+        self.assertEqual(data['project_id'],'synthetic-demo-v1')
         for item in data['files']:
             self.assertEqual(file_record(manifest.parent/item['path'],manifest.parent),item)
+        exported_csv=next(manifest.parent.rglob('annotations.csv'))
+        with exported_csv.open(encoding='utf-8-sig',newline='') as stream:rows=list(csv.DictReader(stream))
+        self.assertEqual(rows[0]['project_id'],'synthetic-demo-v1')
+        self.assertEqual(rows[0]['geometry_id'],'synthetic-single-v1')
         self.assertFalse(any(p.suffix in ('.nrrd','.npz','.gz') for p in manifest.parent.rglob('*')))
 
     def test_shared_dedup_not_inferred(self):
@@ -126,6 +132,29 @@ class CoordinateFieldTests(unittest.TestCase):
 
 
 class LegacyImportTests(unittest.TestCase):
+    def test_legacy_endpoint_overshoot_is_converted_using_validated_reader_geometry(self):
+        with tempfile.TemporaryDirectory(prefix='cas-legacy-endpoint-') as folder:
+            root=Path(folder);old=root/'old';old.mkdir();casepath,m=write_tiny_case(old)
+            for pid,record in m['paths'].items():
+                frames=old/record['frames']
+                with np.load(frames) as data:fields={key:data[key] for key in data.files}
+                fields['distance_mm'][-1]=10.25
+                np.savez_compressed(frames,**fields)
+                csvpath=old/record['path']
+                with csvpath.open(newline='',encoding='utf-8') as stream:rows=list(csv.DictReader(stream))
+                rows[-1]['distance_mm']='10.25'
+                with csvpath.open('w',newline='',encoding='utf-8') as stream:
+                    writer=csv.DictWriter(stream,fieldnames=list(rows[0]));writer.writeheader();writer.writerows(rows)
+            m['files']=[file_record(old/item['path'],old) for item in m['files']]
+            casepath.write_text(json.dumps(m))
+            (old/'manifest.json').write_text(json.dumps({'schema_version':'imagecasx-package-1.0','cases':[{'case_id':'synthetic','case_manifest':'case.json'}]}))
+            original=(old/m['paths']['LAD']['frames']).read_bytes()
+            import_package(old,root/'new','endpoint-project')
+            case=load_case(root/'new/synthetic/case.json')
+            self.assertEqual(case.paths['LAD'].length_mm,10.2)
+            self.assertEqual(case.paths['LAD'].distances[-1],10.2)
+            self.assertEqual((old/m['paths']['LAD']['frames']).read_bytes(),original)
+
     def test_lossless_explicit_import_without_modifying_original_files_or_database(self):
         with tempfile.TemporaryDirectory(prefix='cas-legacy-test-') as folder:
             root=Path(folder);old=root/'old';old.mkdir();casepath,_=write_tiny_case(old)

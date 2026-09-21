@@ -9,7 +9,7 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('output');p.add_argument('--backend-only',action='store_true');a=p.parse_args()
     root=Path(__file__).resolve().parents[1];output=Path(a.output).resolve()
     if output.exists():raise FileExistsError(output)
-    owned={'app.py','widgets.py','platform_support.py','label_catalog.py','label_logic.py','i18n.py'}
+    owned={'app.py','widgets.py','platform_support.py','label_catalog.py','label_logic.py','test_label_logic_v012.py','i18n.py'}
     files=[]
     for folder in ('annotation_app','tests','tools','examples/synthetic-v1','schemas','docs','.github'):
         for path in (root/folder).rglob('*'):

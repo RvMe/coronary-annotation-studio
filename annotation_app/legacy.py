@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import shutil
 import tempfile
+import numpy as np
 from .legacy_imaging import load_case as load_legacy_case
 from .legacy_storage import AnnotationStore as LegacyStore
 from .imaging import safe_relative_path
@@ -53,10 +54,24 @@ def import_package(source, destination, project_id):
         if canonical.get("status") == "verified":
             canonical.update(reference_paths=["LAD","LCX"], relationship_id="legacy-explicit-LM",
                              evidence={"original_sidecar": m["canonical_lm"], "verification": "Legacy declared identity and exact centerline comparison"})
-        paths = {pid: {"image": record["image"], "display_name": pid,
-                      "mapping": {"type": "frames", "file": record["frames"], "axis_order": "s,v,u",
-                                  "inplane_spacing_mm": [case.paths[pid].spacing_mm]*2}}
-                 for pid, record in m["paths"].items()}
+        paths = {}
+        mapping_root = root / "neutral-mapping"
+        mapping_root.mkdir()
+        for pid, record in m["paths"].items():
+            path_data = case.paths[pid]
+            # The legacy reader clamps a small upstream end-sample overshoot
+            # against QA length. Preserve that actual interpretation in the
+            # neutral mapping while keeping the original archive unchanged.
+            mapped_file = mapping_root / f"{pid}.npz"
+            np.savez_compressed(mapped_file, distance_mm=path_data.distances,
+                                centers=path_data.centers, normals=path_data.normals,
+                                binormals=path_data.binormals, tangents=path_data.tangents,
+                                segment_id=path_data.segment_ids)
+            paths[pid] = {"image": record["image"], "display_name": pid,
+                          "mapping": {"type": "frames", "file": mapped_file.relative_to(root).as_posix(),
+                                      "axis_order": "s,v,u", "inplane_spacing_mm": [path_data.spacing_mm]*2},
+                          "legacy_mapping": {"original_frames": record["frames"],
+                                             "endpoint_policy": "legacy_reader_QA_length_clamp"}}
         new = {"schema_version": "cas-case-1.0", "project_id": project_id, "case_id": case.case_id,
                "geometry_id": m["geometry_id"], "units": "mm", "coordinate_system": "LPS", "intensity_units": "HU",
                "native": m["native"], "paths": paths, "annotation_scope": list(paths), "canonical_lm": canonical,
