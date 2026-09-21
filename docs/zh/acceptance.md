@@ -1,5 +1,9 @@
 # v0.1.0 验收记录
 
+**已发布并完成公开下载核对：**[v0.1.0](https://github.com/RvMe/coronary-annotation-studio/releases/tag/v0.1.0)。
+三个程序包、源码及离线文档共五个 ZIP，均通过无需登录的 HTTPS 链接完整下载，文件大小和 SHA-256 与本地验收文件一致。
+在线文档的 29 个页面及资源均返回 HTTP 200。
+
 2026-09-21，Windows x64、Mac Apple Silicon 和 Mac Intel 三种程序包均已完成本地技术验收。
 每种程序都从最终 ZIP 重新解压，完成“打开合成示例—标注—保存—退出—恢复—导出”。
 Mac 成品通过 OneDrive 不可变文件清单传回，并在接收端重新核对 SHA-256；Windows 端没有解包或重打包 Mac 应用。

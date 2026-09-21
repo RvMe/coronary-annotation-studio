@@ -2,6 +2,12 @@
 
 ## Final local artifact acceptance
 
+**Published and download-verified:** [v0.1.0](https://github.com/RvMe/coronary-annotation-studio/releases/tag/v0.1.0).
+All five ZIP assets were downloaded over HTTPS without authentication and matched
+their local byte counts and SHA-256 hashes. The deployed documentation's 29 pages
+and resources returned HTTP 200. Publication evidence is included in the
+[acceptance JSON](release-acceptance.json).
+
 All three v0.1.0 program ZIPs passed their own final re-extraction workflow on
 2026-09-21. Windows x64 ran on Windows 11 Pro; Mac arm64 ran natively and Mac
 x86_64 ran under Rosetta on the connected Apple Silicon Mac mini, macOS 26.2.
