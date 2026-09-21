@@ -44,9 +44,9 @@ def label_applicability(label: dict) -> dict[str, bool]:
 
 def _validate_reason_codes(codes: object) -> None:
     if not isinstance(codes, list) or any(not isinstance(code, str) for code in codes):
-        raise ValueError("困难原因必须为可选原因列表")
+        raise ValueError('Reasons must be a list of optional reason codes.')
     if len(codes) != len(set(codes)) or any(code not in REASON_CODES for code in codes):
-        raise ValueError("困难原因包含未知或重复选项")
+        raise ValueError('Reasons contain an unknown or duplicate option.')
 
 
 def transition_label(label: dict, key: str, value: object) -> dict:
@@ -59,23 +59,23 @@ def transition_label(label: dict, key: str, value: object) -> dict:
     its source snapshot is never mutated by this function.
     """
     if key not in {"finding_status", "plaque_composition", "stenosis_grade", "confidence", "reason_codes"}:
-        raise ValueError("未知的标注字段")
+        raise ValueError('Unknown annotation field.')
     result = deepcopy(label)
     applicability = label_applicability(label)
     if key == "finding_status":
         if value not in FINDINGS:
-            raise ValueError("请选择本段所见")
+            raise ValueError('Select an interval finding.')
     elif key == "reason_codes":
         if not applicability["reasons_enabled"]:
-            raise ValueError("只有不可评估时可选择困难原因")
+            raise ValueError('Reasons can be selected only for a non-evaluable interval.')
         _validate_reason_codes(value)
     else:
         control = {"plaque_composition": "composition_enabled", "stenosis_grade": "stenosis_enabled", "confidence": "confidence_enabled"}[key]
         if not applicability[control]:
-            raise ValueError("此字段不适用于当前所见，请先选择本段所见")
+            raise ValueError('This field does not apply to the current finding. Select a finding first.')
         valid = {"plaque_composition": COMPOSITIONS, "stenosis_grade": STENOSES, "confidence": CONFIDENCES}[key]
         if value not in valid:
-            raise ValueError("未知的标注选项")
+            raise ValueError('Unknown annotation option.')
     if label.get(key) == value:
         return result
     if key == "finding_status":
@@ -128,32 +128,32 @@ def validate_new_label(label: dict) -> None:
     remain importable. A skipped confidence is null, never an invented low value.
     """
     if not isinstance(label, dict) or label.get("finding_status") not in FINDINGS:
-        raise ValueError("请先选择 1 · 本段所见")
+        raise ValueError('Select 1 · Interval finding first.')
     finding = label["finding_status"]
     composition = label.get("plaque_composition")
     stenosis = label.get("stenosis_grade")
     confidence = label.get("confidence")
     applicability = label_applicability(label)
     if applicability["composition_required"] and composition not in COMPOSITIONS:
-        raise ValueError("请选择 2 · 斑块组成；不能确定时可选“类型不确定”")
+        raise ValueError('Select 2 · Plaque composition; choose Uncertain type if needed.')
     if not applicability["composition_enabled"] and composition is not None:
-        raise ValueError("正常或不可评估不应保留斑块组成")
+        raise ValueError('Normal and non-evaluable findings cannot retain plaque composition.')
     if stenosis not in STENOSES:
-        raise ValueError("请选择 3 · 本段最大直径狭窄")
+        raise ValueError('Select 3 · Maximum diameter stenosis.')
     if finding == "negative" and stenosis != "0":
-        raise ValueError("明确正常对应无斑块、狭窄 0%；非斑块性狭窄不能标为明确正常")
+        raise ValueError('Normal means no plaque and 0% stenosis. Non-plaque stenosis cannot be labeled normal.')
     if finding == "non_evaluable":
         if stenosis != "unable" or confidence is not None:
-            raise ValueError("不可评估应跳过狭窄分级与把握，保存为无法判断和不适用")
+            raise ValueError('Not evaluable skips stenosis grading and confidence; these are saved as unable and not applicable.')
     elif confidence not in CONFIDENCES:
-        raise ValueError("请选择 4 · 判断把握；更改诊断后需重新确认把握")
+        raise ValueError('Select 4 · Confidence; confirm it again after changing the finding.')
     if not isinstance(label.get("reason", ""), str):
-        raise ValueError("旧版备注必须为文字")
+        raise ValueError('The legacy note must be text.')
     if "reason_codes" in label:
         _validate_reason_codes(label["reason_codes"])
     peak = label.get("s_peak_stenosis_mm")
     if peak is not None:
         if not applicability["peak_enabled"]:
-            raise ValueError("只有明确的非零狭窄等级可指定最狭窄位置")
+            raise ValueError('Peak stenosis requires an explicit nonzero stenosis grade.')
         if isinstance(peak, bool) or not isinstance(peak, (int, float)) or not math.isfinite(peak) or peak < 0:
-            raise ValueError("最狭窄位置必须为有效非负毫米值")
+            raise ValueError('Peak stenosis must be a valid nonnegative distance in millimeters.')

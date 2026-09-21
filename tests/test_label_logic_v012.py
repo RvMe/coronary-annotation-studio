@@ -44,7 +44,7 @@ class LabelLogicV012Tests(unittest.TestCase):
     def test_positive_and_suspected_both_require_explicit_composition(self):
         for finding in ("positive", "uncertain"):
             label = self.positive(finding_status=finding, plaque_composition=None)
-            with self.assertRaisesRegex(ValueError, "斑块组成"):
+            with self.assertRaisesRegex(ValueError, "Plaque composition"):
                 validate_new_label(label)
             label["plaque_composition"] = "uncertain"
             validate_new_label(label)
@@ -111,7 +111,7 @@ class LabelLogicV012Tests(unittest.TestCase):
         for key, value in (("plaque_composition", "non_calcified"), ("stenosis_grade", "25_49")):
             changed = transition_label(label, key, value)
             self.assertIsNone(changed["confidence"])
-            with self.assertRaisesRegex(ValueError, "判断把握"):
+            with self.assertRaisesRegex(ValueError, "Confidence"):
                 validate_new_label(changed)
             validate_new_label(transition_label(changed, "confidence", "medium"))
 

@@ -1,6 +1,8 @@
 """Offline desktop reader application. No server, network or model inference."""
 from __future__ import annotations
 
+from .i18n import tr, Text, display, language_manager, error_message
+
 import argparse
 import json
 import os
@@ -14,13 +16,15 @@ from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Qt, Signal, Slot, QLockFile, QEvent, QPoint, QPointF
+from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Qt, Signal, Slot, QLockFile, QEvent, QPoint, QPointF, QSignalBlocker
 from PySide6.QtGui import QKeySequence, QShortcut, QFontDatabase, QFont, QIcon, QPixmap, QPainter, QPen, QColor, QAction
 from PySide6.QtWidgets import (
     QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QLabel,QPushButton,
     QButtonGroup,QFrame,QSplitter,QScrollArea,QListWidget,QListWidgetItem,QFileDialog,
     QMessageBox,QLineEdit,QDoubleSpinBox,QComboBox,QCheckBox,QAbstractSpinBox,QSizePolicy,QDialog,QToolButton,QMenu,
 )
+
+from .i18n_widgets import (QLabel, QPushButton, QCheckBox, QToolButton, QWidget, QMainWindow, QDialog, QComboBox, QLineEdit, QDoubleSpinBox, QListWidget, QListWidgetItem, QAction, QStatusBar, QMenu, QMessageBox)
 
 from . import __version__
 from .domain import empty_state,apply_annotation,delete_annotation,add_marker,delete_marker,coverage_report,snap_endpoint,mark_case_complete,effective_reader_review_required,reader_review_reasons
@@ -52,10 +56,10 @@ QSplitter::handle{background:#283844;width:5px;height:5px;} QToolTip{color:#e5ed
 QStatusBar{background:#101821;color:#9eafbc;}
 """
 
-FINDINGS=[("明确正常","negative"),("明确有斑块","positive"),("疑似 / 不确定","uncertain"),("不可评估","non_evaluable")]
-COMPOSITIONS=[("钙化","calcified"),("非钙化","non_calcified"),("混合","partially_calcified"),("类型不确定","uncertain")]
-STENOSES=[("0%","0"),("1–24%","1_24"),("25–49%","25_49"),("50–69%","50_69"),("70–99%","70_99"),("100%","100"),("无法判断","unable")]
-CONFIDENCES=[("高","high"),("中","medium"),("低","low")]
+FINDINGS=[(tr('Normal'),"negative"),(tr('Plaque present'),"positive"),(tr('Suspected / uncertain'),"uncertain"),(tr('Not evaluable'),"non_evaluable")]
+COMPOSITIONS=[(tr('Calcified'),"calcified"),(tr('Non-calcified'),"non_calcified"),(tr('Mixed'),"partially_calcified"),(tr('Uncertain type'),"uncertain")]
+STENOSES=[("0%","0"),("1–24%","1_24"),("25–49%","25_49"),("50–69%","50_69"),("70–99%","70_99"),("100%","100"),(tr('Unable to assess'),"unable")]
+CONFIDENCES=[(tr('High'),"high"),(tr('Medium'),"medium"),(tr('Low'),"low")]
 
 
 class WorkerSignals(QObject):
@@ -74,9 +78,9 @@ class Worker(QRunnable):
 
 def safe_child(root,relative):
     root=Path(root).resolve();rel=Path(relative)
-    if rel.is_absolute() or rel.drive:raise ValueError("数据包必须使用相对路径")
+    if rel.is_absolute() or rel.drive:raise ValueError(tr('Package paths must be relative.'))
     path=(root/rel).resolve()
-    if not path.is_relative_to(root):raise ValueError("数据包路径越界")
+    if not path.is_relative_to(root):raise ValueError(tr('A package path escapes its root directory.'))
     return path
 
 
@@ -84,6 +88,15 @@ class MainWindow(QMainWindow):
     def __init__(self,db_path=None,package=None,reader=None,case_id=None,restore_last=True):
         super().__init__()
         self.app=QApplication.instance()
+        self.base_dir=user_data_dir()
+        preference_path=(Path(db_path).resolve().parent/"ui-preferences.json") if db_path is not None else self.base_dir/"ui-preferences.json"
+        self.languages=language_manager(preference_path)
+        self.project=None;self.project_id=None
+        if package is not None:
+            self.project=self._project_for_package(package);self.project_id=self.project["project_id"]
+            if db_path is None:
+                from .projects import database_for_project
+                db_path=database_for_project(self.project_id)
         # Windows offscreen QA has no platform font database. Use the installed
         # system font, not a redistributed Microsoft font in the application ZIP.
         if is_macos():
@@ -94,15 +107,29 @@ class MainWindow(QMainWindow):
                 path=Path(os.environ.get("WINDIR","C:/Windows"))/"Fonts"/font
                 if path.exists():QFontDatabase.addApplicationFont(str(path))
             self.app.setFont(QFont("Microsoft YaHei UI",9))
-        self.setWindowTitle(f"ImageCAS-X CPR Studio {__version__} · 正式候选版（研究标注）")
+        if package is None and db_path is not None:
+            identity_path=Path(db_path).resolve().parent/"project.json"
+            if identity_path.is_file():
+                from .projects import validate_id
+                identity=json.loads(identity_path.read_text(encoding="utf-8"))
+                self.project_id=validate_id(identity.get("project_id"));self.project={"project_id":self.project_id}
+        self.setWindowTitle(tr('Coronary Annotation Studio {p0} · Research annotation' ,p0=__version__))
         self.resize(1540,940);self.setMinimumSize(880,520)
         self.base_dir=user_data_dir()
-        self.db_path=(Path(db_path) if db_path else self.base_dir/"annotations.sqlite").resolve()
-        if "onedrive" in str(self.db_path).lower():raise ValueError("数据库应放本机非 OneDrive 目录")
+        self.db_path=(Path(db_path) if db_path else self.base_dir/"welcome.sqlite").resolve()
+        if "onedrive" in str(self.db_path).lower():raise ValueError(tr('Keep the database in a local directory outside OneDrive.'))
         self.db_path.parent.mkdir(parents=True,exist_ok=True)
         self._db_lock=QLockFile(str(self.db_path)+".app.lock");self._db_lock.setStaleLockTime(0)
-        if not self._db_lock.tryLock(0):raise RuntimeError("此标注工作区已被另一个窗口打开，请使用已有窗口，避免同时编辑。")
-        self.store=AnnotationStore(self.db_path)
+        if not self._db_lock.tryLock(0):raise RuntimeError(tr('This workspace is already open in another window. Use that window to avoid concurrent editing.'))
+        if self.project_id:
+            from .projects import bind_database
+            try: bind_database(self.db_path,self.project_id)
+            except Exception:
+                self._db_lock.unlock();raise
+        try:self.store=AnnotationStore(self.db_path)
+        except Exception:
+            self._db_lock.unlock();raise
+        self._project_databases={self.project_id:self.db_path} if self.project_id else {}
         self.persist_preferences=restore_last
         self.session_path=Path(str(self.db_path)+".session.json")
         self.session_notice="";self.unavailable_package_roots=[]
@@ -114,15 +141,15 @@ class MainWindow(QMainWindow):
         self.session_active_case_id=saved.get("active_case_id")
         self.reader_id=reader if reader is not None else saved.get("reader_id","READER-A")
         if not isinstance(self.reader_id,str) or not self.reader_id.strip() or len(self.reader_id)>40 or any(c in self.reader_id for c in '/\\:*?"<>|'):
-            self.store.close();self._db_lock.unlock();raise ValueError("读者编号须为 1–40 个字符，不能包含路径字符")
-        self.reader_id=self.reader_id.strip();self.case=None;self.case_path=None;self.path_id="LAD";self.state=None
+            self.store.close();self._db_lock.unlock();raise ValueError(tr('Reader ID must contain 1–40 characters and no path separators.'))
+        self.reader_id=self.reader_id.strip();self.case=None;self.case_path=None;self.path_id="";self.state=None
         self.s=0.;self.a=0.;self.b=10.;self.angle_deg=0.;self.offset_mm=0.;self.width_hu=700.;self.level_hu=250.;self.native_z=0
         # Display preferences belong to this local workspace, not a case's
         # diagnostic record. Loading another vessel must not restore an old angle.
         display=saved.get("display_preferences",{})
         if not isinstance(display,dict):display={}
-        quarters=display.get("native_rotation_quarters",2)
-        self.native_rotation_quarters=quarters if type(quarters) is int and 0<=quarters<4 else 2
+        quarters=display.get("native_rotation_quarters",0)
+        self.native_rotation_quarters=quarters if type(quarters) is int and 0<=quarters<4 else 0
         visible=display.get("reference_lines_visible",True)
         self.reference_lines_visible=visible if type(visible) is bool else True
         self.editing_id=None;self.selected_marker=None;self.label={};self.dirty=False;self.hide_overlays=False;self.legacy_anatomy=""
@@ -137,7 +164,10 @@ class MainWindow(QMainWindow):
         self._auto_compact_width=False;self._auto_compact_height=False
         self._coverage_cache_key=None;self._coverage_cache=None
         self.selected_icon=self.make_selected_icon()
+        self.setStatusBar(QStatusBar(self))
         self._build_ui();self._shortcuts();self.app.installEventFilter(self)
+        self.languages.changed.connect(self._language_changed)
+        self._language_changed(self.languages.language)
         self.setStyleSheet(STYLE.replace("'Microsoft YaHei UI','Segoe UI'",font_family_css()))
         available=self.app.primaryScreen().availableGeometry()
         self.resize(min(1540,max(880,available.width()-30)),min(940,max(520,available.height()-60)))
@@ -155,80 +185,118 @@ class MainWindow(QMainWindow):
         if self.session_path.exists():
             try:
                 saved=json.loads(self.session_path.read_text(encoding="utf-8"))
-                if saved.get("schema_version")!="imagecasx-session-1.0":raise ValueError("不支持的会话版本")
+                if saved.get("schema_version")!="cas-session-1.0":raise ValueError(tr('Unsupported session version.'))
+                if saved.get("project_id")!=self.project_id:raise ValueError(tr("The session belongs to another project."))
                 roots=saved.get("package_roots",[])
-                if not isinstance(roots,list) or not all(isinstance(p,str) and p for p in roots):raise ValueError("数据包列表无效")
+                if not isinstance(roots,list) or not all(isinstance(p,str) and p for p in roots):raise ValueError(tr('Invalid package list.'))
                 saved["package_roots"]=list(dict.fromkeys(str(Path(p).resolve()) for p in roots))
                 active_root=saved.get("active_package_root")
                 if active_root is not None:
-                    if not isinstance(active_root,str) or not active_root:raise ValueError("当前数据目录无效")
+                    if not isinstance(active_root,str) or not active_root:raise ValueError(tr('Invalid active data directory.'))
                     saved["active_package_root"]=str(Path(active_root).resolve())
                     if saved["active_package_root"] not in saved["package_roots"]:
                         saved["package_roots"].append(saved["active_package_root"])
                 elif len(roots)>1:
-                    self.session_notice="已从旧版累积列表切换为最近登记目录；如不是当前批次，请重新打开对应数据包文件夹。历史标注均保留。"
+                    self.session_notice=tr('Restored the most recently registered directory. Open a different package folder if needed. Saved annotations are retained.')
                 active_cases=saved.get("active_package_cases",[])
-                if not isinstance(active_cases,list) or not all(isinstance(cid,str) and cid for cid in active_cases):raise ValueError("当前批次病例列表无效")
+                if not isinstance(active_cases,list) or not all(isinstance(cid,str) and cid for cid in active_cases):raise ValueError(tr('Invalid case list for the current batch.'))
                 saved["active_package_cases"]=list(dict.fromkeys(active_cases))
                 reader=saved.get("reader_id","READER-A")
                 if not isinstance(reader,str) or not reader.strip() or len(reader)>40 or any(c in reader for c in '/\\:*?"<>|'):
-                    raise ValueError("会话读者编号无效")
+                    raise ValueError(tr('Invalid reader ID in session.'))
                 active=saved.get("active_case_id")
-                if active is not None and not isinstance(active,(str,int)):raise ValueError("会话病例编号无效")
+                if active is not None and not isinstance(active,(str,int)):raise ValueError(tr('Invalid case ID in session.'))
                 saved["active_case_id"]=str(active) if active is not None else None
                 return saved
             except (OSError,ValueError,TypeError,AttributeError) as exc:
-                self.session_notice=f"上次会话文件未恢复：{exc}。标签数据库未修改。"
+                self.session_notice=tr('Could not restore the previous session: {p0}. The annotation database was not changed.' ,p0=exc)
                 return {}
-        if self.db_path==(self.base_dir/"annotations.sqlite").resolve():
-            legacy=self.base_dir/"last_package.json"
-            try:
-                old=json.loads(legacy.read_text(encoding="utf-8"))
-                if isinstance(old.get("path"),str) and old["path"]:
-                    return {"package_roots":[str(Path(old["path"]).resolve())],"reader_id":"READER-A"}
-            except (OSError,ValueError,TypeError,AttributeError):pass
         return {}
 
-    def _save_session(self,*,package_roots=None,reader_id=None,active_case_id=None,active_package_root=None,active_package_cases=None):
+    def _save_session(self,*,package_roots=None,reader_id=None,active_case_id=None,active_package_root=None,active_package_cases=None,workspace=None):
         if not self.persist_preferences:return True
         active=active_case_id if active_case_id is not None else str(self.case.case_id) if self.case else self.session_active_case_id
-        content={"schema_version":"imagecasx-session-1.0","package_roots":list(package_roots if package_roots is not None else self.package_roots),"reader_id":reader_id if reader_id is not None else self.reader_id,"active_case_id":active}
+        content={"schema_version":"cas-session-1.0","package_roots":list(package_roots if package_roots is not None else self.package_roots),"reader_id":reader_id if reader_id is not None else self.reader_id,"active_case_id":active}
+        content["project_id"]=workspace["project"]["project_id"] if workspace else self.project_id
         content["display_preferences"]={"native_rotation_quarters":self.native_rotation_quarters,"reference_lines_visible":self.reference_lines_visible}
         content["active_package_root"]=active_package_root if active_package_root is not None else self.active_package_root
         content["active_package_cases"]=list(active_package_cases if active_package_cases is not None else self.active_package_cases)
-        temporary=self.session_path.with_name(self.session_path.name+"."+uuid.uuid4().hex+".tmp")
+        session_path=workspace["session_path"] if workspace else self.session_path
+        temporary=session_path.with_name(session_path.name+"."+uuid.uuid4().hex+".tmp")
         try:
             with temporary.open("x",encoding="utf-8") as stream:
                 json.dump(content,stream,ensure_ascii=False,sort_keys=True,allow_nan=False,indent=2)
                 stream.flush();os.fsync(stream.fileno())
-            os.replace(temporary,self.session_path)
-            self.session_active_case_id=active
+            os.replace(temporary,session_path)
+            if workspace is None:self.session_active_case_id=active
             return True
         except (OSError,ValueError,TypeError) as exc:
-            self.save_status.setText("会话保存失败：请勿关闭");self.hint(f"会话保存失败：{exc}")
+            self.save_status.setText(tr('Session save failed: keep this window open'));self.hint(tr('Session save failed: {p0}' ,p0=exc))
             return False
         finally:
             try:temporary.unlink(missing_ok=True)
             except OSError:pass
 
     def _package_cases(self,root,existing=None):
-        root=Path(root).resolve()
-        if not root.exists():raise ValueError("原目录当前不可用（磁盘未连接或目录已移动）")
-        manifests=[root] if root.is_file() else sorted(root.rglob("manifest.json"))
-        if not manifests:raise ValueError("没有找到 manifest.json；请先解压数据 ZIP")
+        project=self._project_for_package(root)
+        root=Path(project["root"]).resolve()
+        manifest=Path(project["manifest_path"]).resolve()
+        data=json.loads(manifest.read_text(encoding="utf-8"))
+        if manifest!=root/"manifest.json" or data.get("schema_version")!="cas-package-1.0":
+            raise ValueError(tr("Open the package root containing a cas-package-1.0 manifest.json."))
         additions={};existing=self.case_index if existing is None else existing
-        for manifest in manifests:
-            data=json.loads(manifest.read_text(encoding="utf-8"))
-            if data.get("schema_version")!="imagecasx-package-1.0":continue
-            for entry in data.get("cases",[]):
-                path=safe_child(manifest.parent,entry["case_manifest"]);cid=str(entry["case_id"])
-                if not path.is_file():raise ValueError(f"病例 {cid} 缺少 case.json")
-                old=existing.get(cid) or additions.get(cid)
-                if old and json.loads(old.read_text(encoding="utf-8")).get("geometry_id")!=json.loads(path.read_text(encoding="utf-8")).get("geometry_id"):
-                    raise ValueError(f"病例 {cid} 出现不同几何版本；请使用独立工作区")
-                additions[cid]=path
-        if not additions:raise ValueError("目录中没有受支持的数据包")
+        for entry in data.get("cases",[]):
+            path=safe_child(root,entry["case_manifest"]);cid=str(entry["case_id"])
+            case=json.loads(path.read_text(encoding="utf-8"))
+            if case.get("schema_version")!="cas-case-1.0" or case.get("project_id")!=project["project_id"] or str(case.get("case_id"))!=cid:
+                raise ValueError(tr("Case {case_id} does not belong to the selected project.",case_id=cid))
+            if cid in additions:raise ValueError(tr("Duplicate case ID: {case_id}",case_id=cid))
+            old=existing.get(cid)
+            if old and json.loads(old.read_text(encoding="utf-8")).get("geometry_id")!=case.get("geometry_id"):
+                raise ValueError(tr("Case {case_id} has conflicting geometry versions.",case_id=cid))
+            additions[cid]=path
+        if not additions:raise ValueError(tr("The package contains no cases."))
         return additions
+
+    @staticmethod
+    def _project_for_package(root):
+        from .projects import project_for_package
+        project=project_for_package(Path(root).resolve())
+        if not isinstance(project,dict) or not isinstance(project.get("project_id"),str) or not project["project_id"]:
+            raise ValueError(tr("The package has no valid project identity."))
+        return project
+
+    def _prepare_project_workspace(self,project):
+        from .projects import database_for_project,bind_database
+        path=Path(self._project_databases.get(project["project_id"]) or database_for_project(project["project_id"])).resolve()
+        if path==self.db_path:
+            raise ValueError(tr("Different projects must use different databases."))
+        if "onedrive" in str(path).lower():raise ValueError(tr("Keep the database in a local directory outside OneDrive."))
+        path.parent.mkdir(parents=True,exist_ok=True)
+        lock=QLockFile(str(path)+".app.lock");lock.setStaleLockTime(0)
+        if not lock.tryLock(0):raise RuntimeError(tr("The selected project is already open in another window."))
+        try:
+            bind_database(path,project["project_id"])
+            store=AnnotationStore(path)
+            return {"project":project,"db_path":path,"session_path":Path(str(path)+".session.json"),"lock":lock,"store":store}
+        except Exception:
+            lock.unlock();raise
+
+    def _discard_pending_project(self):
+        pending=self._pending_package_switch
+        workspace=pending.get("workspace") if pending else None
+        if workspace:
+            workspace["store"].close();workspace["lock"].unlock()
+        self._pending_package_switch=None
+
+    def _confirm_project_switch(self,project):
+        dialog=QMessageBox(self);dialog.setWindowTitle(tr("Switch project"))
+        dialog.setText(tr("Open project {project_id} in its own workspace?",project_id=project["project_id"]))
+        dialog.setInformativeText(tr("The current draft and view will be saved. Each project keeps a separate annotation database."))
+        accept=dialog.addButton(tr("Save and switch"),QMessageBox.ButtonRole.AcceptRole)
+        cancel=dialog.addButton(tr("Cancel"),QMessageBox.ButtonRole.RejectRole)
+        dialog.setDefaultButton(cancel);dialog.setEscapeButton(cancel);dialog.exec()
+        return dialog.clickedButton() is accept
 
     def restore_session_roots(self,roots,preferred_case=None):
         if self._closing:return
@@ -237,13 +305,15 @@ class MainWindow(QMainWindow):
         combined={};self.unavailable_package_roots=[]
         if self.active_package_root:
             try:
+                restored_project=self._project_for_package(self.active_package_root)
+                if restored_project["project_id"]!=self.project_id:raise ValueError(tr("The session belongs to another project."))
                 combined=self._package_cases(self.active_package_root,{})
                 self.active_package_cases=list(combined)
             except (OSError,ValueError,KeyError,TypeError) as exc:
                 self.unavailable_package_roots.append({"path":self.active_package_root,"reason":str(exc)})
         self.case_index=combined;self.refresh_queue()
         if preferred_case is not None and str(preferred_case) not in self.case_index:
-            self.session_notice+=("\n" if self.session_notice else "")+f"上次病例 {preferred_case} 不在当前可用目录；历史标注仍保留。"
+            self.session_notice+=("\n" if self.session_notice else "")+tr('Previous case {p0} is unavailable in the current directory. Saved annotations are retained.' ,p0=preferred_case)
         if self._save_session() and self.case_index:
             target=str(preferred_case) if str(preferred_case) in self.case_index else next(iter(self.case_index))
             self.select_case_in_queue(target)
@@ -252,8 +322,8 @@ class MainWindow(QMainWindow):
     def show_session_notice(self):
         if self.unavailable_package_roots:
             details="\n".join(f"{r['path']} — {r['reason']}" for r in self.unavailable_package_roots)
-            self.queue_count.setToolTip("当前数据目录暂不可用：\n"+details+"\n历史标注未删除，可导出本批已存记录或全部历史。")
-            self.hint("当前数据目录暂不可用；未自动加入其他历史批次。重新打开目录可恢复阅片，已存标签仍可导出。")
+            self.queue_count.setToolTip(tr("The current data directory is unavailable:\n{details}\nSaved annotations are retained and can be exported.",details=details))
+            self.hint(tr('The current directory is unavailable. Other historical batches were not added. Reopen the directory to view images; saved annotations can still be exported.'))
         elif self.session_notice:self.hint(self.session_notice)
 
     @property
@@ -270,85 +340,96 @@ class MainWindow(QMainWindow):
 
     def _build_ui(self):
         central=QWidget();outer=QVBoxLayout(central);outer.setContentsMargins(12,8,12,8);outer.setSpacing(8);self.setCentralWidget(central)
-        banner=QHBoxLayout();brand=QLabel("ImageCAS-X  /  CPR Studio");brand.setObjectName("brand");banner.addWidget(brand)
-        sub=QLabel("OFFLINE  ·  正式候选版 / 待验收  ·  v"+__version__);self.subtitle=sub;sub.setObjectName("muted");banner.addWidget(sub);banner.addStretch()
-        banner.addWidget(self.button("病例/帮助",self.toggle_sidebar));banner.addWidget(self.button("邻近切片",self.toggle_neighbors))
-        self.reference_lines_button=self.button("参考线 Z",self.toggle_reference_lines)
+        banner=QHBoxLayout();brand=QLabel("Coronary Annotation Studio");brand.setObjectName("brand");banner.addWidget(brand)
+        sub=QLabel(tr("OFFLINE · Research annotation · v{version}",version=__version__));self.subtitle=sub;sub.setObjectName("muted");banner.addWidget(sub);banner.addStretch()
+        self.language_box=QComboBox();self.language_box.setObjectName("language_selector")
+        self.language_box.addItem("English","en");self.language_box.addItem("简体中文","zh_CN")
+        self.language_box.setAccessibleName(tr("Interface language"));self.language_box.setToolTip(tr("Change interface language without changing annotations or drafts."))
+        self.language_box.setCurrentIndex(self.language_box.findData(self.languages.language))
+        self.language_box.currentIndexChanged.connect(self._choose_language);banner.addWidget(self.language_box)
+        banner.addWidget(self.button(tr('Cases / help'),self.toggle_sidebar));banner.addWidget(self.button(tr('Neighbors'),self.toggle_neighbors))
+        self.reference_lines_button=self.button(tr('Reference lines Z'),self.toggle_reference_lines)
         self.reference_lines_button.setCheckable(True);self.reference_lines_button.setChecked(self.reference_lines_visible)
-        self.reference_lines_button.setAccessibleName("三个主影像窗参考线开关 Z")
-        self.reference_lines_button.setToolTip("Z：隐藏 / 显示三个主影像窗的绿色参考线；不隐藏橙框、辅助标记或底条观察点。亮起表示参考线开启。")
+        self.reference_lines_button.setAccessibleName(tr('Toggle reference lines in the three image views (Z)'))
+        self.reference_lines_button.setToolTip(tr('Z toggles green reference lines in the three image views. The selection, markers and timeline position remain visible. Highlighted means enabled.'))
         banner.addWidget(self.reference_lines_button)
-        self.retry_render_button=self.button("重试影像",self.retry_render);self.retry_render_button.hide();banner.addWidget(self.retry_render_button)
-        self.save_status=QLabel("未载入病例");banner.addWidget(self.save_status);outer.addLayout(banner)
+        self.retry_render_button=self.button(tr('Retry images'),self.retry_render);self.retry_render_button.hide();banner.addWidget(self.retry_render_button)
+        self.save_status=QLabel(tr('No case loaded'));banner.addWidget(self.save_status);outer.addLayout(banner)
         split=QSplitter(Qt.Orientation.Horizontal);outer.addWidget(split,1)
         # Left: data, reader identity, queue, full operation legend.
         left=QWidget();self.sidebar=left;lv=QVBoxLayout(left);lv.setContentsMargins(0,0,4,0);lv.setSpacing(7)
-        self.section(lv,"病例与工作区")
-        lv.addWidget(self.button("打开数据包文件夹…",self.choose_package))
-        self.package_caption=QLabel("当前目录：尚未打开");self.package_caption.setObjectName("muted")
+        self.section(lv,tr('Cases and workspace'))
+        lv.addWidget(self.button(tr('Open package folder…'),self.choose_package))
+        self.package_caption=QLabel(tr('Directory: not opened'));self.package_caption.setObjectName("muted")
         self.package_caption.setMinimumWidth(0);self.package_caption.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred)
         lv.addWidget(self.package_caption)
-        identity=QHBoxLayout();identity.addWidget(QLabel("读者"));self.reader_box=QLineEdit(self.reader_id);self.reader_box.setMaxLength(40);self.reader_box.editingFinished.connect(self.change_reader);identity.addWidget(self.reader_box);lv.addLayout(identity)
-        self.queue_count=QLabel("0 例 · 原始影像只读");self.queue_count.setObjectName("muted");lv.addWidget(self.queue_count)
-        self.case_list=QListWidget();self.case_list.setObjectName("case_list");self.case_list.currentItemChanged.connect(self.choose_case_item);lv.addWidget(self.case_list,1)
-        self.complete_button=self.button("检查并标记本例完成",self.mark_complete);lv.addWidget(self.complete_button)
-        row=QHBoxLayout();row.addWidget(self.button("导出本例",self.export_current))
-        self.batch_export_button=QToolButton();self.batch_export_button.setText("导出本批")
-        self.batch_export_button.setToolTip("导出当前目录内本读者的已标病例；右侧小箭头可导出全部历史备份。")
+        identity=QHBoxLayout();identity.addWidget(QLabel(tr('Reader')));self.reader_box=QLineEdit(self.reader_id);self.reader_box.setAccessibleName(tr("Reader ID"));self.reader_box.setMaxLength(40);self.reader_box.editingFinished.connect(self.change_reader);identity.addWidget(self.reader_box);lv.addLayout(identity)
+        self.queue_count=QLabel(tr('0 cases · Images are read-only'));self.queue_count.setWordWrap(True);self.queue_count.setObjectName("muted");lv.addWidget(self.queue_count)
+        self.case_list=QListWidget();self.case_list.setObjectName("case_list");self.case_list.setAccessibleName(tr("Case queue"));self.case_list.currentItemChanged.connect(self.choose_case_item);lv.addWidget(self.case_list,1)
+        self.complete_button=self.button(tr('Check and mark case complete'),self.mark_complete);lv.addWidget(self.complete_button)
+        row=QHBoxLayout();row.addWidget(self.button(tr('Export case'),self.export_current))
+        self.batch_export_button=QToolButton();self.batch_export_button.setText(tr('Export batch'))
+        self.batch_export_button.setToolTip(tr("Export this reader's annotated cases in the current directory. Use the arrow to export all project history."))
         self.batch_export_button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
         self.batch_export_button.clicked.connect(self.export_batch)
         export_menu=QMenu(self.batch_export_button)
-        export_menu.addAction("导出当前批次",self.export_batch)
-        export_menu.addAction("导出全部历史（本读者备份）",self.export_all)
+        export_menu.addAction(tr('Export current batch'),self.export_batch)
+        export_menu.addAction(tr('Export all project history (reader backup)'),self.export_all)
         self.batch_export_button.setMenu(export_menu);row.addWidget(self.batch_export_button);lv.addLayout(row)
-        lv.addWidget(self.button("导入已有标签 JSON…",self.import_labels))
-        lv.addWidget(self.button("操作说明 / 数据安全",self.show_help))
+        import_button=QToolButton();import_button.setText(tr("Import annotations…"));import_button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+        import_button.clicked.connect(self.import_labels)
+        import_menu=QMenu(import_button)
+        import_menu.addAction(tr("Import annotation JSON…"),self.import_labels)
+        import_menu.addAction(tr("Import legacy annotation export…"),self.import_legacy_labels)
+        import_menu.addAction(tr("Convert legacy package to a new project…"),self.import_legacy_package)
+        import_button.setMenu(import_menu);lv.addWidget(import_button)
+        lv.addWidget(self.button(tr('Help / data safety'),self.show_help))
         help_text=QLabel(shortcut_help());self.operation_help=help_text
         help_text.setWordWrap(True);help_text.setObjectName("muted")
         hs=QScrollArea();hs.setWidgetResizable(True);hs.setWidget(help_text);hs.setMinimumHeight(180);hs.setMaximumHeight(350);lv.addWidget(hs)
-        left.setMinimumWidth(185);left.setMaximumWidth(270);split.addWidget(left)
+        left.setMinimumWidth(225);left.setMaximumWidth(270);split.addWidget(left)
         # Middle: neighbor strip, primary CPR, large orthogonal view, native CT, timeline.
         middle=QWidget();mv=QVBoxLayout(middle);mv.setContentsMargins(0,0,0,0);mv.setSpacing(6)
-        nav=QHBoxLayout();self.case_title=QLabel("选择一个病例开始");nav.addWidget(self.case_title);nav.addStretch()
+        nav=QHBoxLayout();self.case_title=QLabel(tr('Select a case to begin'));nav.addWidget(self.case_title);nav.addStretch()
         self.path_buttons={}
-        for name in ("LAD","LCX","RCA"):
-            b=self.button(name,lambda checked=False,n=name:self.change_path(n));b.setCheckable(True);self.path_buttons[name]=b;nav.addWidget(b)
+        self.path_navigation=QHBoxLayout();nav.addLayout(self.path_navigation)
         mv.addLayout(nav)
         self.neighbor_container=QWidget();thumbs=QHBoxLayout(self.neighbor_container);thumbs.setContentsMargins(0,0,0,0);thumbs.setSpacing(4);self.neighbors=[]
         for k in range(-3,4):
             w=Neighbor(self,k);thumbs.addWidget(w,1);self.neighbors.append(w)
         mv.addWidget(self.neighbor_container)
         self.neighbor_step=.5
-        self.neighbor_controls=QWidget();neighbor_row=QHBoxLayout(self.neighbor_controls);neighbor_row.setContentsMargins(0,0,0,0);neighbor_row.addWidget(QLabel("邻近横截面 · 点击定位"));neighbor_row.addStretch()
+        self.neighbor_controls=QWidget();neighbor_row=QHBoxLayout(self.neighbor_controls);neighbor_row.setContentsMargins(0,0,0,0);neighbor_row.addWidget(QLabel(tr('Neighboring cross-sections · Click to navigate')));neighbor_row.addStretch()
         for distance in (.5,1,2):neighbor_row.addWidget(self.button(f"±{distance:g} mm",lambda checked=False,d=distance:self.set_neighbor_step(d)))
         mv.addWidget(self.neighbor_controls)
         images=QSplitter(Qt.Orientation.Horizontal);self.images_splitter=images
         self.cpr=ImageCanvas(self,"cpr");self.cross=ImageCanvas(self,"cross");self.native=ImageCanvas(self,"native");self.canvases=[self.cpr,self.cross,self.native]
-        images.addWidget(self.image_panel("纵向 CPR",self.cpr,"cpr"))
-        right_images=QSplitter(Qt.Orientation.Vertical);self.right_images=right_images;right_images.addWidget(self.image_panel("正交横截面",self.cross,"cross"));right_images.addWidget(self.image_panel("原始 CT · 自由翻层",self.native,"native"));right_images.setSizes([310,265]);images.addWidget(right_images);images.setSizes([510,355]);mv.addWidget(images,1)
-        progress=QHBoxLayout();self.completion_caption=QLabel("覆盖检查：尚未载入");self.completion_caption.setObjectName("muted");self.completion_caption.setMinimumWidth(0);self.completion_caption.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred);progress.addWidget(self.completion_caption,1)
-        self.next_issue_button=self.button("下一处未标 / 复核",self.next_coverage_issue);self.next_issue_button.setStyleSheet("padding:1px 5px;min-height:14px;");progress.addWidget(self.next_issue_button);mv.addLayout(progress)
+        images.addWidget(self.image_panel(tr('Longitudinal CPR'),self.cpr,"cpr"))
+        right_images=QSplitter(Qt.Orientation.Vertical);self.right_images=right_images;right_images.addWidget(self.image_panel(tr('Orthogonal section'),self.cross,"cross"));right_images.addWidget(self.image_panel(tr('Native CT · Free scrolling'),self.native,"native"));right_images.setSizes([310,265]);images.addWidget(right_images);images.setSizes([510,355]);mv.addWidget(images,1)
+        progress=QHBoxLayout();self.completion_caption=QLabel(tr('Coverage: no case loaded'));self.completion_caption.setObjectName("muted");self.completion_caption.setMinimumWidth(0);self.completion_caption.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred);progress.addWidget(self.completion_caption,1)
+        self.next_issue_button=self.button(tr('Next gap / review'),self.next_coverage_issue);self.next_issue_button.setStyleSheet("padding:1px 5px;min-height:14px;");progress.addWidget(self.next_issue_button);mv.addLayout(progress)
         self.track=IntervalTrack(self);mv.addWidget(self.track)
         controls=QHBoxLayout();self.angle_spin=self.spin(-180,180,0,.5," °");self.offset_spin=self.spin(-10,10,0,.1," mm")
-        controls.addWidget(QLabel("旋转"));controls.addWidget(self.angle_spin);controls.addWidget(self.button("归零",lambda:self.set_sampling(angle=0)))
-        controls.addWidget(QLabel("离轴"));controls.addWidget(self.offset_spin);controls.addWidget(self.button("归零",lambda:self.set_sampling(offset=0)))
+        self.angle_spin.setAccessibleName(tr("CPR rotation in degrees"));self.offset_spin.setAccessibleName(tr("CPR offset in millimeters"))
+        controls.addWidget(QLabel(tr('Rotation')));controls.addWidget(self.angle_spin);controls.addWidget(self.button(tr('Reset'),lambda:self.set_sampling(angle=0)))
+        controls.addWidget(QLabel(tr('Offset')));controls.addWidget(self.offset_spin);controls.addWidget(self.button(tr('Reset'),lambda:self.set_sampling(offset=0)))
         self.angle_spin.valueChanged.connect(lambda v:self.set_sampling(angle=v) if not self._syncing else None)
         self.offset_spin.valueChanged.connect(lambda v:self.set_sampling(offset=v) if not self._syncing else None)
-        self.overlay_box=QCheckBox("隐藏色块");self.overlay_box.toggled.connect(self.set_hide_overlays);controls.addWidget(self.overlay_box);mv.addLayout(controls)
-        self.geometry_status=QLabel("几何映射：尚未载入");self.geometry_status.setWordWrap(True);self.geometry_status.setObjectName("muted");mv.addWidget(self.geometry_status)
+        self.overlay_box=QCheckBox(tr('Hide overlays'));self.overlay_box.toggled.connect(self.set_hide_overlays);controls.addWidget(self.overlay_box);mv.addLayout(controls)
+        self.geometry_status=QLabel(tr('Geometry: no case loaded'));self.geometry_status.setWordWrap(True);self.geometry_status.setObjectName("muted");mv.addWidget(self.geometry_status)
         split.addWidget(middle)
         # Right: direct labels and optional reason chips; no repeated anatomy typing.
         right=QWidget();rv=QVBoxLayout(right);rv.setContentsMargins(4,0,0,0);rv.setSpacing(7)
-        draft_header=QHBoxLayout();self.draft_title=QLabel("待标注 · 诊断未填写");self.draft_title.setObjectName("section");draft_header.addWidget(self.draft_title,1)
-        self.exit_edit_button=self.button("退出修改",self.exit_editing);self.exit_edit_button.setObjectName("exitEditing");self.exit_edit_button.setToolTip("退出旧片段修改，保留橙框位置；未应用的改动会先询问。Esc 也可退出。")
+        draft_header=QHBoxLayout();self.draft_title=QLabel(tr('Draft · No finding selected'));self.draft_title.setObjectName("section");draft_header.addWidget(self.draft_title,1)
+        self.exit_edit_button=self.button(tr('Exit edit'),self.exit_editing);self.exit_edit_button.setObjectName("exitEditing");self.exit_edit_button.setToolTip(tr('Exit interval editing and keep the selection. Unapplied changes require a choice. Esc also exits.'))
         draft_header.addWidget(self.exit_edit_button);rv.addLayout(draft_header)
-        limits=QHBoxLayout();self.start_spin=self.spin(0,999,0,.25," mm");self.end_spin=self.spin(0,999,10,.25," mm");limits.addWidget(QLabel("起"));limits.addWidget(self.start_spin);limits.addWidget(QLabel("止"));limits.addWidget(self.end_spin);rv.addLayout(limits)
+        limits=QHBoxLayout();self.start_spin=self.spin(0,999,0,.25," mm");self.end_spin=self.spin(0,999,10,.25," mm");self.start_spin.setAccessibleName(tr("Interval start in millimeters"));self.end_spin.setAccessibleName(tr("Interval end in millimeters"));limits.addWidget(QLabel(tr('Start')));limits.addWidget(self.start_spin);limits.addWidget(QLabel(tr('End')));limits.addWidget(self.end_spin);rv.addLayout(limits)
         self.start_spin.valueChanged.connect(lambda v:self.numeric_range(v,self.b,"start") if not self._syncing else None)
         self.end_spin.valueChanged.connect(lambda v:self.numeric_range(self.a,v,"end") if not self._syncing else None)
-        rv.addWidget(self.button("典型正常段",self.typical_normal,"normal"))
-        scroll=QScrollArea();scroll.setWidgetResizable(True);fields=QWidget();fv=QVBoxLayout(fields);fv.setContentsMargins(0,0,0,0);fv.setSpacing(6)
+        rv.addWidget(self.button(tr('Typical normal interval'),self.typical_normal,"normal"))
+        scroll=QScrollArea();self.annotation_scroll=scroll;scroll.setWidgetResizable(True);fields=QWidget();fv=QVBoxLayout(fields);fv.setContentsMargins(0,0,0,0);fv.setSpacing(6)
         self.groups={};self.field_sections={}
-        for key,title,choices,cols in [("finding_status","1 · 本段所见",FINDINGS,2),("plaque_composition","2 · 斑块组成",COMPOSITIONS,2),("stenosis_grade","3 · 本段最大直径狭窄",STENOSES,3),("confidence","4 · 判断把握",CONFIDENCES,3)]:
+        for key,title,choices,cols in [("finding_status",tr('1 · Interval finding'),FINDINGS,2),("plaque_composition",tr('2 · Plaque composition'),COMPOSITIONS,2),("stenosis_grade",tr('3 · Maximum diameter stenosis'),STENOSES,3),("confidence",tr('4 · Confidence'),CONFIDENCES,3)]:
             panel=QWidget();pv=QVBoxLayout(panel);pv.setContentsMargins(0,0,0,0);pv.setSpacing(4);self.field_sections[key]=panel
             self.section(pv,title);grid=QGridLayout();grid.setSpacing(4);group=QButtonGroup(self);group.setExclusive(True);buttons={}
             for i,(text,value) in enumerate(choices):
@@ -358,27 +439,27 @@ class MainWindow(QMainWindow):
             if key=="finding_status":
                 self.flow_note=QLabel();self.flow_note.setWordWrap(True);self.flow_note.setObjectName("muted");fv.addWidget(self.flow_note)
         self.peak_panel=QWidget();peaklayout=QVBoxLayout(self.peak_panel);peaklayout.setContentsMargins(0,0,0,0);peaklayout.setSpacing(4)
-        self.peak_label=QLabel("最狭窄位置：未指定（辅助标记不代替）");self.peak_label.setWordWrap(True);self.peak_label.setObjectName("muted");peaklayout.addWidget(self.peak_label)
-        peakrow=QHBoxLayout();peakrow.addWidget(self.button("当前层设为最狭窄处",self.set_peak));peakrow.addWidget(self.button("清除",self.clear_peak));peaklayout.addLayout(peakrow);fv.addWidget(self.peak_panel)
+        self.peak_label=QLabel(tr('Peak stenosis: not set (markers do not substitute)'));self.peak_label.setWordWrap(True);self.peak_label.setObjectName("muted");peaklayout.addWidget(self.peak_label)
+        peakrow=QHBoxLayout();peakrow.addWidget(self.button(tr('Set peak at current slice'),self.set_peak));peakrow.addWidget(self.button(tr('Clear'),self.clear_peak));peaklayout.addLayout(peakrow);fv.addWidget(self.peak_panel)
         self.reason_panel=QWidget();reasonlayout=QVBoxLayout(self.reason_panel);reasonlayout.setContentsMargins(0,0,0,0);reasonlayout.setSpacing(4)
-        self.section(reasonlayout,"5 · 不可评估原因（可选、多选）")
+        self.section(reasonlayout,tr('5 · Reasons not evaluable (optional)'))
         reasons=QGridLayout();reasons.setSpacing(4);self.reason_buttons={}
         for i,(code,text,tip) in enumerate(REASON_OPTIONS):
-            b=self.button(text,lambda checked=False,c=code:self.toggle_reason(c));b.setCheckable(True)
-            b.setProperty("baseText",text);b.setToolTip(tip);self.style_choice(b,"#8eb4c2")
+            b=self.button(tr(text),lambda checked=False,c=code:self.toggle_reason(c));b.setCheckable(True)
+            b.setProperty("baseText",text);b.setToolTip(tr(tip));self.style_choice(b,"#8eb4c2")
             b.setStyleSheet(b.styleSheet()+" QPushButton{padding:4px 5px;min-height:16px;}")
             self.reason_buttons[code]=b;reasons.addWidget(b,i//2,i%2)
-        reasons.addWidget(self.button("清空原因",self.clear_reasons),3,1);reasonlayout.addLayout(reasons)
-        optional=QLabel("不选也可直接应用；2–4项不作诊断判断。");optional.setWordWrap(True);optional.setObjectName("muted");reasonlayout.addWidget(optional);fv.addWidget(self.reason_panel)
+        reasons.addWidget(self.button(tr('Clear reasons'),self.clear_reasons),3,1);reasonlayout.addLayout(reasons)
+        optional=QLabel(tr('Reasons are optional. Fields 2–4 do not supply a diagnosis for a non-evaluable interval.'));optional.setWordWrap(True);optional.setObjectName("muted");reasonlayout.addWidget(optional);fv.addWidget(self.reason_panel)
         self.legacy_reason_label=QLabel();self.legacy_reason_label.setWordWrap(True);self.legacy_reason_label.setTextFormat(Qt.TextFormat.PlainText);self.legacy_reason_label.setObjectName("muted");self.legacy_reason_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse);fv.addWidget(self.legacy_reason_label);self.legacy_reason_label.hide()
         fv.addStretch();scroll.setWidget(fields);rv.addWidget(scroll,1)
-        self.summary_label=QLabel();self.summary_label.setObjectName("annotationSummary");self.summary_label.setWordWrap(True);self.summary_label.setTextFormat(Qt.TextFormat.RichText);self.summary_label.setAccessibleName("应用前确认：当前片段标注总结")
+        self.summary_label=QLabel();self.summary_label.setObjectName("annotationSummary");self.summary_label.setWordWrap(True);self.summary_label.setTextFormat(Qt.TextFormat.RichText);self.summary_label.setAccessibleName(tr('Before applying: interval annotation summary'))
         self.summary_label.setStyleSheet("QLabel{background:#18252e;border:1px solid #42535d;border-radius:6px;padding:8px;}");rv.addWidget(self.summary_label)
-        self.apply_button=self.button("应用标签  /  S 或 Enter",self.apply_current,"apply");rv.addWidget(self.apply_button)
-        editrow=QHBoxLayout();editrow.addWidget(self.button("撤销",self.undo));editrow.addWidget(self.button("重做",self.redo));self.delete_button=self.button("删除片段",self.delete_selected,"danger");editrow.addWidget(self.delete_button);rv.addLayout(editrow)
-        self.current_note=QLabel("应用后清空诊断；单击旧色块才能修改旧段。");self.current_note.setWordWrap(True);self.current_note.setObjectName("muted");rv.addWidget(self.current_note)
-        right.setMinimumWidth(265);right.setMaximumWidth(330);split.addWidget(right);split.setSizes([210,960,310]);self.sync_controls()
-        self.statusBar().showMessage("就绪 · 研究标注工具，不用于临床诊断")
+        self.apply_button=self.button(tr('Apply label / S or Enter'),self.apply_current,"apply");rv.addWidget(self.apply_button)
+        editrow=QHBoxLayout();editrow.addWidget(self.button(tr('Undo'),self.undo));editrow.addWidget(self.button(tr('Redo'),self.redo));self.delete_button=self.button(tr('Delete interval'),self.delete_selected,"danger");editrow.addWidget(self.delete_button);rv.addLayout(editrow)
+        self.current_note=QLabel(tr('Applying clears the finding. Click an existing overlay to edit a saved interval.'));self.current_note.setWordWrap(True);self.current_note.setObjectName("muted");rv.addWidget(self.current_note)
+        right.setMinimumWidth(330);right.setMaximumWidth(350);split.addWidget(right);split.setSizes([230,960,330]);self.sync_controls()
+        self.statusBar().showMessage(tr('Ready · Research annotation, not clinical diagnosis'))
 
     def style_choice(self,button,color):
         button.setProperty("selectionColor",color)
@@ -396,47 +477,48 @@ class MainWindow(QMainWindow):
 
     def update_summary(self):
         choices={"finding_status":dict((value,text) for text,value in FINDINGS),"plaque_composition":dict((value,text) for text,value in COMPOSITIONS),"stenosis_grade":dict((value,text) for text,value in STENOSES),"confidence":dict((value,text) for text,value in CONFIDENCES)}
-        def field(key,prefix,missing):
+        def field(key,missing,template=None):
             value=self.label.get(key);text=choices[key].get(value,missing);color=SELECTION_COLORS[key].get(value,"#9eabb6")
-            return f'<span style="color:{color};font-weight:600">{escape(prefix+text)}</span>'
-        parts=[field("finding_status","","所见未选")]
+            rendered=tr(template,value=text) if template else text
+            return f'<span style="color:{color};font-weight:600">{escape(display(rendered))}</span>'
+        parts=[field("finding_status",tr("Finding not selected"))]
         finding=self.label.get("finding_status")
-        if finding not in ("negative","non_evaluable"):
-            parts.append(field("plaque_composition","","组成未选"))
+        if finding not in ("negative","non_evaluable"):parts.append(field("plaque_composition",tr("Composition not selected")))
+        reasons=", ".join(display(tr(text)) for code,text,_ in REASON_OPTIONS if code in self.label.get("reason_codes",[]))
         if finding=="non_evaluable":
-            selected=[text for code,text,_ in REASON_OPTIONS if code in self.label.get("reason_codes",[])]
-            parts.append('<span style="color:#a7b9c6">'+escape("原因："+"、".join(selected) if selected else "原因未选（可留空）")+'</span>')
-        else:parts.extend([field("stenosis_grade","狭窄 ","未选"),field("confidence","把握 ","未选")])
-        self.summary_label.setText(f'<span style="color:#98aab6">应用前确认 · {self.a:.2f}–{self.b:.2f} mm</span><br>本段：'+" · ".join(parts)+"。")
-        selected=[text for code,text,_ in REASON_OPTIONS if code in self.label.get("reason_codes",[])]
-        self.summary_label.setToolTip("原因："+"、".join(selected) if selected else "原因未选择（可留空，不阻止应用）")
+            text=tr("Reasons: {reasons}",reasons=reasons) if reasons else tr("Reasons not selected (optional)")
+            parts.append('<span style="color:#a7b9c6">'+escape(display(text))+'</span>')
+        else:
+            parts.extend([field("stenosis_grade",tr("not selected"),"Stenosis: {value}"),field("confidence",tr("not selected"),"Confidence: {value}")])
+        self.summary_label.setText(tr('<span style="color:#98aab6">Before applying · {start:.2f}–{end:.2f} mm</span><br>Interval: {summary}',start=self.a,end=self.b,summary=" · ".join(parts)))
+        self.summary_label.setToolTip(tr("Reasons: {reasons}",reasons=reasons) if reasons else tr("Reasons not selected (optional; does not prevent applying)"))
 
     def spin(self,low,high,value,step,suffix):
         spin=QDoubleSpinBox();spin.setRange(low,high);spin.setDecimals(2);spin.setValue(value);spin.setSingleStep(step);spin.setSuffix(suffix);spin.setKeyboardTracking(False);spin.setMinimumWidth(64);spin.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Fixed);return spin
 
     def image_panel(self,title,canvas,kind):
         frame=QFrame();frame.setObjectName("panel");v=QVBoxLayout(frame);v.setContentsMargins(5,4,5,4);v.setSpacing(2)
-        row=QHBoxLayout();row.addWidget(QLabel(title));row.addStretch()
+        caption=QLabel(title);caption.setToolTip(title);v.addWidget(caption)
+        row=QHBoxLayout();row.addStretch()
         if is_macos():
-            window_button=self.button("窗宽/位");window_button.setObjectName(f"windowLevel_{kind}")
-            window_button.setToolTip("触控板 / 无中键：打开调节板，左键拖动改变窗宽和窗位")
+            window_button=self.button(tr('W/L'));window_button.setObjectName(f"windowLevel_{kind}")
+            window_button.setToolTip(tr('Trackpad / no middle button: open the panel and drag with the left button to adjust window and level.'))
             window_button.setStyleSheet("padding:2px 4px;min-height:16px;")
             window_button.clicked.connect(lambda checked=False,b=window_button:self.show_window_level(b));row.addWidget(window_button)
-        expand=self.button("放大",lambda:self.expand_image(kind));expand.setToolTip("放大/还原此影像窗");row.addWidget(expand)
-        row.addWidget(self.button("居中",lambda:canvas.center_observation()))
+        expand=self.button(tr('Expand'),lambda:self.expand_image(kind));expand.setToolTip(tr('Expand / restore this image view'));row.addWidget(expand)
+        row.addWidget(self.button(tr('Center'),lambda:canvas.center_observation()))
         row.addWidget(self.button("1×",lambda:canvas.center_observation(True)))
         if kind=="native":
             self.native_rotate_button=self.button("90°",self.rotate_native_display)
             self.native_rotate_button.setObjectName("nativeRotate90")
-            self.native_rotate_button.setAccessibleName("原始 CT 顺时针旋转 90 度")
+            self.native_rotate_button.setAccessibleName(tr('Rotate native CT clockwise by 90 degrees'))
             self.update_native_rotation_hint();row.addWidget(self.native_rotate_button)
-            row.addWidget(self.button("回定位",self.native_return))
-        if is_macos():
-            # Cocoa's taller header buttons otherwise squeeze the two stacked
-            # image panels below their 120 px canvas minimum in compact windows.
-            for index in range(row.count()):
-                control=row.itemAt(index).widget()
-                if isinstance(control,QPushButton):control.setStyleSheet("padding:2px 4px;min-height:18px;")
+            row.addWidget(self.button(tr('Locate'),self.native_return))
+        # Compact image actions leave room for both stacked canvases at native
+        # Windows/Cocoa font metrics and high display scaling.
+        for index in range(row.count()):
+            control=row.itemAt(index).widget()
+            if isinstance(control,QPushButton):control.setStyleSheet("padding:2px 4px;min-height:18px;")
         v.addLayout(row);v.addWidget(canvas,1);self.image_panels[kind]=frame;return frame
 
     def show_window_level(self,anchor):
@@ -485,7 +567,7 @@ class MainWindow(QMainWindow):
         visible=not self.neighbor_container.isVisible()
         if visible and self.height()<700:
             self.neighbor_container.hide();self.neighbor_controls.hide()
-            self.hint("窗口较矮：请先增大窗口再展开邻近切片；也可单独放大影像窗。")
+            self.hint(tr('Increase the window height before showing neighbors, or expand an individual image view.'))
             return
         self.neighbor_container.setVisible(visible);self.neighbor_controls.setVisible(visible)
         self._preserve_observed_cpr_after_layout(was_visible)
@@ -510,8 +592,8 @@ class MainWindow(QMainWindow):
             shortcut=QShortcut(QKeySequence(key),self);shortcut.setAutoRepeat(False)
             shortcut.activated.connect(lambda f=fn:f() if not self.text_focus() else None);self.reader_shortcuts.append(shortcut)
         if is_macos():
-            menu=self.menuBar().addMenu("ImageCAS-X")
-            self.quit_action=QAction("退出 ImageCAS-X",self)
+            menu=QMenu("Coronary Annotation Studio",self);self.menuBar().addMenu(menu)
+            self.quit_action=QAction(tr('Quit Coronary Annotation Studio'),self)
             self.quit_action.setMenuRole(QAction.MenuRole.QuitRole)
             self.quit_action.setShortcut(QKeySequence("Ctrl+Q"));self.quit_action.setAutoRepeat(False)
             # Never connect Quit to app.quit(): closeEvent must save the draft
@@ -562,44 +644,57 @@ class MainWindow(QMainWindow):
     def hint(self,text):self.statusBar().showMessage(text)
 
     def error(self,title,error):
-        self.save_status.setText("操作未完成")
-        QMessageBox.warning(self,title,str(error))
+        self.save_status.setText(tr("Operation incomplete"))
+        message=error.args[0] if isinstance(error,Exception) and error.args else error
+        raw=str(error)
+        text=error_message(error)
+        if "\n" in raw or (self.languages.language!="en" and display(text)==raw):
+            text=tr("This operation could not be completed. Open the technical details for the original error.")
+        box=QMessageBox(self);box.setIcon(QMessageBox.Icon.Warning);box.setWindowTitle(title);box.setText(text)
+        box.setDetailedText(raw);ok=box.addButton(tr("OK"),QMessageBox.ButtonRole.AcceptRole);box.setDefaultButton(ok);box.exec()
 
     def choose_package(self):
-        path=QFileDialog.getExistingDirectory(self,"打开当前批次：选择单个已解压数据包文件夹（父目录会包含其所有子包）")
+        path=QFileDialog.getExistingDirectory(self,tr('Open a batch: select an extracted package folder (a parent folder includes its child packages)'))
         if path:self.import_package(Path(path))
 
     def import_package(self,root,preferred_case=None):
         if self.loading:return False
+        workspace=None
         try:
-            root=Path(root).resolve();additions=self._package_cases(root,{})
-            if not self.guard_draft() or not self.save_view():return False
-            roots=list(dict.fromkeys(self.package_roots+[str(root)]))
-            target=preferred_case or (str(self.case.case_id) if self.case else next(iter(additions)))
-            target=str(target) if str(target) in additions else next(iter(additions))
-            # Publish the new folder/list only after its first image and saved
-            # annotation provenance load successfully. Old labels stay in SQLite.
-            self._pending_package_switch={"root":str(root),"roots":roots,"cases":additions,"target":target}
+            project=self._project_for_package(root);root=Path(project["root"]).resolve()
+            additions=self._package_cases(root,{})
+            switching=project["project_id"]!=self.project_id
+            if switching:
+                if self.project_id and not self._confirm_project_switch(project):return False
+                if not self.save_view():return False
+                workspace=self._prepare_project_workspace(project)
+            elif not self.guard_draft() or not self.save_view():return False
+            roots=[str(root)] if switching else list(dict.fromkeys(self.package_roots+[str(root)]))
+            target=str(preferred_case) if preferred_case is not None else str(self.case.case_id) if self.case and not switching else next(iter(additions))
+            if target not in additions:target=next(iter(additions))
+            self._pending_package_switch={"root":str(root),"roots":roots,"cases":additions,"target":target,"workspace":workspace,"project":project}
             if not self.load_case_async(target,case_path=additions[target]):
-                self._pending_package_switch=None;return False
+                self._discard_pending_project();return False
             return True
         except Exception as exc:
-            self._pending_package_switch=None;self.error("数据包未载入",exc);return False
+            if self._pending_package_switch:self._discard_pending_project()
+            elif workspace:workspace["store"].close();workspace["lock"].unlock()
+            self.error(tr("Package not loaded"),exc);return False
 
     def refresh_queue(self):
         active=str(self.case.case_id) if self.case else None
         self.case_list.blockSignals(True);self.case_list.clear()
         for cid in self.case_index:
             st=self.store.load(cid,self.reader_id)
-            prefix="✓ 完成·待处理" if st.get("case_status")=="complete_with_gaps" else "✓ 完成" if st.get("case_status")=="complete" else "进行" if st.get("annotations") else "待标"
-            item=QListWidgetItem(f"{prefix}  Case {cid}");item.setData(Qt.ItemDataRole.UserRole,cid);self.case_list.addItem(item)
+            prefix=tr('✓ Complete · Follow-up') if st.get("case_status")=="complete_with_gaps" else tr('✓ Complete') if st.get("case_status")=="complete" else tr('In progress') if st.get("annotations") else tr('Unannotated')
+            item=QListWidgetItem(tr("{status} · Case {case_id}",status=prefix,case_id=cid));item.setData(Qt.ItemDataRole.UserRole,cid);self.case_list.addItem(item)
             if cid==active:self.case_list.setCurrentItem(item)
         self.case_list.blockSignals(False)
-        unavailable=f" · {len(self.unavailable_package_roots)} 包不可用" if self.unavailable_package_roots else ""
-        self.queue_count.setText(f"本目录 {len(self.case_index)} 例 · {self.reader_id}"+unavailable)
-        self.package_caption.setText("当前目录："+(Path(self.active_package_root).name if self.active_package_root else "尚未打开"))
-        self.package_caption.setToolTip((self.active_package_root or "请选择单个已解压的数据包文件夹")+"\n只显示该目录及其子目录中的病例；切换目录不删除历史标注。")
-        self.queue_count.setToolTip("仅显示当前打开目录；已完成/未完成病例均保留。其他批次标注仍在本机，可重新打开原目录继续。")
+        unavailable=tr(' · {p0} packages unavailable' ,p0=len(self.unavailable_package_roots)) if self.unavailable_package_roots else ""
+        self.queue_count.setText(tr("{count} cases · Reader {reader} · {unavailable} packages unavailable",count=len(self.case_index),reader=self.reader_id,unavailable=len(self.unavailable_package_roots)))
+        self.package_caption.setText(tr("Directory: {name}",name=Path(self.active_package_root).name if self.active_package_root else tr("not opened")))
+        self.package_caption.setToolTip(tr("{directory}\nOnly cases in this package are listed. Each project has its own database.",directory=self.active_package_root or tr("Select an extracted package folder")))
+        self.queue_count.setToolTip(tr('Only the current directory is shown. Completed and incomplete cases remain listed. Reopen another batch to continue its saved annotations.'))
 
     def select_case_in_queue(self,cid):
         for i in range(self.case_list.count()):
@@ -629,7 +724,7 @@ class MainWindow(QMainWindow):
         try:
             candidate=self.store.load(str(self.case.case_id),value,self.source_info()) if self.case else None
         except Exception as exc:
-            self.reader_box.setText(self.reader_id);self.error("未切换读者",exc);return
+            self.reader_box.setText(self.reader_id);self.error(tr('Reader not changed'),exc);return
         if not self._save_session(reader_id=value):self.reader_box.setText(self.reader_id);return
         self.reader_id=value
         if self.case:
@@ -643,7 +738,7 @@ class MainWindow(QMainWindow):
         self.load_generation+=1;self.render_generation+=1
         if self._pending_package_switch is not None:self._pending_package_switch["generation"]=self.load_generation
         self.requested_case=cid
-        self.loading=True;self.save_status.setText(f"正在读取 Case {cid}…");self.case_title.setText(f"Case {cid} · 读取原始 HU 与映射")
+        self.loading=True;self.save_status.setText(tr('Loading case {p0}…' ,p0=cid));self.case_title.setText(tr('Case {p0} · Loading native HU and geometry' ,p0=cid))
         self.apply_button.setEnabled(False)
         self.centralWidget().setEnabled(False)
         path=case_path if case_path is not None else self.case_index[cid]
@@ -666,26 +761,37 @@ class MainWindow(QMainWindow):
             try:
                 pending=self._pending_package_switch
                 if pending and (pending.get("generation")!=generation or str(candidate.case_id)!=pending["target"] or Path(candidate_path).resolve()!=pending["cases"][pending["target"]].resolve()):
-                    raise ValueError("候选病例与当前数据包请求不一致，未切换目录")
+                    raise ValueError(tr('The candidate case does not match the requested package. The directory was not changed.'))
                 source=self.source_info(candidate,candidate_path)
-                candidate_state=self.store.load(str(candidate.case_id),self.reader_id,source)
+                workspace=pending.get("workspace") if pending else None
+                expected_project=pending["project"]["project_id"] if pending else self.project_id
+                if source.get("project_id")!=expected_project:raise ValueError(tr("Loaded geometry belongs to another project."))
+                target_store=workspace["store"] if workspace else self.store
+                candidate_state=target_store.load(str(candidate.case_id),self.reader_id,source)
                 scope={"package_roots":pending["roots"],"active_package_root":pending["root"],"active_package_cases":list(pending["cases"])} if pending else {}
-                if not self._save_session(active_case_id=str(candidate.case_id),**scope):
-                    raise OSError("候选病例会话记录保存失败，未切换病例")
+                if not self._save_session(active_case_id=str(candidate.case_id),workspace=workspace,**scope):
+                    raise OSError(tr('Could not save the candidate session. The case was not changed.'))
             except Exception:
                 self.worker_failed(generation,"load",traceback.format_exc());return
             if pending:
+                if workspace:
+                    old_store,old_lock=self.store,self._db_lock
+                    self.store,self._db_lock=workspace["store"],workspace["lock"]
+                    self.db_path,self.session_path=workspace["db_path"],workspace["session_path"]
+                    self.project,self.project_id=pending["project"],pending["project"]["project_id"]
+                    self._project_databases[self.project_id]=self.db_path
+                    old_store.close();old_lock.unlock()
                 self.package_roots=pending["roots"];self.active_package_root=pending["root"]
                 self.case_index=pending["cases"];self.active_package_cases=list(self.case_index)
                 self.unavailable_package_roots=[];self.session_notice=""
             self._pending_package_switch=None
             self.case,self.case_path,self.state=candidate,candidate_path,candidate_state
             self.loading=False;self.long_key=None;self.centralWidget().setEnabled(True)
-            self.path_id="LAD";self.s=5.;self.a=0.;self.b=10.;self.angle_deg=0.;self.offset_mm=0.;self.native_z=0
+            self.path_id=next(iter(self.case.paths));self._rebuild_path_buttons();self.s=5.;self.a=0.;self.b=10.;self.angle_deg=0.;self.offset_mm=0.;self.native_z=0
             view=self.state.get("view_state",{})
             self.restore_view(view);self._follow_pending=not bool(view);self.sync_controls();self.render_images()
-            self.save_status.setText("已载入 · 标签自动保存")
-            self.case_title.setText(f"Case {self.case.case_id}  ·  {self.path_id}  ·  原始 HU")
+            self.save_status.setText(tr('Loaded · Labels save automatically'))
+            self.case_title.setText(tr('Case {p0} · {p1} · Native HU' ,p0=self.case.case_id,p1=self.path_id))
             self.update_geometry_status();self.refresh_queue();self.show_session_notice()
         elif kind=="render":
             if generation!=self.render_generation:return
@@ -697,33 +803,73 @@ class MainWindow(QMainWindow):
             for thumb,(s,hu) in zip(self.neighbors,neighbors):thumb.set_hu(s,hu)
             if self._follow_pending:self.cpr.ensure_observed();self._follow_pending=False
             self.render_busy=False;self.retry_render_button.hide();self.sync_controls()
-            self.track.update();self.save_status.setText("已载入 · 标签自动保存");self.show_session_notice()
+            self.track.update();self.save_status.setText(tr('Loaded · Labels save automatically'));self.show_session_notice()
 
     @Slot(int,str,str)
     def worker_failed(self,generation,kind,error):
         if self._closing:return
         if kind=="load" and generation!=self.load_generation:return
         if kind=="render" and generation!=self.render_generation:return
-        if kind=="load":self._pending_package_switch=None
+        if kind=="load":self._discard_pending_project()
         # Loading invalidated in-flight renders of the prior case. If the new
         # load fails, old pixels may no longer match its current observation or
         # angle: keep applying disabled until that retained case is resampled.
         self.loading=False;self.render_busy=(kind=="render" or self.case is not None)
         self.centralWidget().setEnabled(True);self.refresh_queue();self.sync_controls()
         self.retry_render_button.setVisible(self.case is not None)
-        self.case_title.setText(f"Case {self.case.case_id} · {self.path_id} · 保留先前病例" if self.case else "没有载入病例")
+        self.case_title.setText(tr('Case {p0} · {p1} · Previous case retained' ,p0=self.case.case_id,p1=self.path_id) if self.case else tr('No case loaded'))
         if kind=="load" and self.case is not None:
             self.long_key=None;self.render_images()
-        self.error("影像读取 / 几何检查失败",error)
-        if kind=="render":self.hint("当前影像未更新，暂不应用标签。可点上方‘重试影像’；草稿保留，也可切换血管或导出已保存标签。")
+        self.error(tr('Image loading / geometry validation failed'),error)
+        if kind=="render":self.hint(tr('Images are not current; applying is disabled. Retry images, switch paths or export saved labels. Your draft is retained.'))
 
     def retry_render(self):
         if not self.case or self.loading:return
         self.long_key=None;self.render_timer.stop();self.invalidate_render();self.render_images()
 
     def source_info(self,case=None,case_path=None):
-        case=case or self.case;case_path=case_path or self.case_path
-        return {"dataset":"ImageCAS-X","official_patient_split":case.manifest.get("official_split"),"geometry_id":case.manifest.get("geometry_id"),"physical_coordinate_system":"LPS","coordinate_units":"mm","interval_convention":"half-open-start-inclusive-end-exclusive","case_manifest":str(case_path.name)}
+        from .package import source_for_case
+        return source_for_case(case or self.case,case_path or self.case_path)
+
+    def annotation_allowed(self):
+        return bool(self.case and self.path_id in self.case.manifest.get("annotation_scope",[]))
+
+    def _rebuild_path_buttons(self):
+        for button in self.path_buttons.values():
+            self.path_navigation.removeWidget(button);button.deleteLater()
+        self.path_buttons={}
+        for path_id,path in self.case.paths.items():
+            metadata=self.case.manifest.get("paths",{}).get(path_id,{})
+            title=metadata.get("display_name") or path_id
+            button=self.button(title,lambda checked=False,p=path_id:self.change_path(p))
+            button.setCheckable(True);button.setObjectName("path_"+path_id)
+            button.setAccessibleName(tr("Path {name}",name=title))
+            self.path_navigation.addWidget(button);self.path_buttons[path_id]=button
+
+    def _choose_language(self,index):
+        language=self.language_box.itemData(index)
+        try:self.languages.set_language(language)
+        except (OSError,ValueError,RuntimeError) as exc:
+            with QSignalBlocker(self.language_box):self.language_box.setCurrentIndex(self.language_box.findData(self.languages.language))
+            self.error(tr("Language was not changed"),exc)
+
+    def update_legacy_reason_display(self):
+        if not hasattr(self,"legacy_reason_label"):return
+        old_reason=self.label.get("reason","")
+        applicable=label_applicability(self.label)
+        legacy_codes=[tr(text) for code,text,_ in REASON_OPTIONS if code in self.label.get("reason_codes",[]) and not applicable["reasons_enabled"]]
+        legacy_text=tr("Legacy note (retained): {note}\nLegacy reasons (retained): {reasons}",note=old_reason,reasons=", ".join(display(x) for x in legacy_codes)) if old_reason or legacy_codes else ""
+        self.legacy_reason_label.setText(legacy_text);self.legacy_reason_label.setVisible(bool(legacy_text))
+
+    def _language_changed(self,language):
+        if not hasattr(self,"language_box"):return
+        with QSignalBlocker(self.language_box):self.language_box.setCurrentIndex(self.language_box.findData(language))
+        # Display-only refresh: do not call sync_controls/refresh_queue, write a
+        # session or replace the current model on a language change.
+        self.update_summary();self.update_completion_display();self.update_native_rotation_hint();self.update_legacy_reason_display()
+        if self.case:self.update_geometry_status()
+        for canvas in self.canvases+[self.track]+self.neighbors:canvas.update()
+        self.update()
 
     def render_images(self):
         if not self.path or self.loading:return
@@ -742,7 +888,7 @@ class MainWindow(QMainWindow):
     def invalidate_render(self):
         # Invalidate at parameter change, not after the debounce delay.
         self.render_generation+=1;self.render_busy=True;self.apply_button.setEnabled(False)
-        self.save_status.setText("正在更新影像…")
+        self.save_status.setText(tr('Updating images…'))
 
     def observe(self,s):
         if not self.path or self.loading:return
@@ -760,7 +906,7 @@ class MainWindow(QMainWindow):
         self.observe(self.s);self.native.center_observation()
 
     def update_native_rotation_hint(self):
-        self.native_rotate_button.setToolTip(f"原始 CT 当前显示角度 {self.native_rotation_quarters*90}°；点按顺时针旋转 90°。首次默认 180°，切换血管和重新打开时沿用；不改变影像数据或标注坐标。")
+        self.native_rotate_button.setToolTip(tr('Native CT display: {p0}°. Click to rotate clockwise by 90°. The initial view is 0°; the setting persists across paths and restarts. Image data and annotation coordinates remain unchanged.' ,p0=self.native_rotation_quarters * 90))
 
     def rotate_native_display(self):
         # Keep the native pixel at the viewport centre stationary while rotating.
@@ -772,13 +918,13 @@ class MainWindow(QMainWindow):
         if pivot is not None:
             canvas.pan+=centre-canvas.native_index_to_screen(*pivot);canvas.update()
         self.update_native_rotation_hint();self.schedule_view_save()
-        if self._save_session():self.hint(f"原始 CT 显示 {self.native_rotation_quarters*90}° · 切换血管沿用；标注坐标未改变")
+        if self._save_session():self.hint(tr('Native CT display: {p0}° · Retained across paths; annotation coordinates unchanged' ,p0=self.native_rotation_quarters * 90))
 
     def toggle_reference_lines(self):
         self.reference_lines_visible=not self.reference_lines_visible
         self.reference_lines_button.setChecked(self.reference_lines_visible)
         for canvas in self.canvases:canvas.update()
-        if self._save_session():self.hint("绿色参考线已"+("显示" if self.reference_lines_visible else "隐藏")+" · 按 Z 切换；橙框、辅助标记和标签不变")
+        if self._save_session():self.hint(tr("Green reference lines are visible. Press Z to hide them; selection, markers and labels remain unchanged.") if self.reference_lines_visible else tr("Green reference lines are hidden. Press Z to show them; selection, markers and labels remain unchanged."))
 
     def native_pick(self,pos,canvas):
         if not self.case or not self.path:return
@@ -786,7 +932,7 @@ class MainWindow(QMainWindow):
         if xy is None:return
         idx=(*xy,self.native_z)
         point=self.case.native.index_to_world(idx);s=self.path.nearest_s(point,max_distance_mm=5)
-        if s is None:self.hint("点击位置不在当前血管附近；未自动切换分支")
+        if s is None:self.hint(tr('The selected point is not near the current path. No branch was switched.'))
         else:self.observe(s)
 
     def set_neighbor_step(self,value):self.neighbor_step=value;self.invalidate_render();self.render_timer.start()
@@ -808,7 +954,7 @@ class MainWindow(QMainWindow):
 
     def lm_end(self):
         lm=self.case.canonical_lm if self.case else {}
-        return float(lm.get("verified_end_mm",0)) if lm.get("status")=="verified" else 0.
+        return float(lm.get("verified_end_mm",0)) if lm.get("status")=="verified" and {"LAD","LCX"}.issubset(self.case.manifest.get("annotation_scope",[])) else 0.
 
     def path_records(self):
         if not self.state:return []
@@ -821,17 +967,17 @@ class MainWindow(QMainWindow):
     def path_rereview(self):return [r for r in self.state.get("rereview_intervals",[]) if r["path_id"]==self.path_id] if self.state else []
 
     def change_path(self,path_id):
-        if not self.case or path_id==self.path_id:return
+        if not self.case or path_id==self.path_id or path_id not in self.case.paths:return
         if not self.guard_draft():return
         self.path_id=path_id;self.clear_draft();self.a=0.;self.b=min(10,self.path.length_mm);self.long_key=None
         self.s=min(5,self.path.length_mm);self.observe(self.s);self.cpr.center_observation();self.sync_controls();self.update_geometry_status()
-        self.case_title.setText(f"Case {self.case.case_id}  ·  {self.path_id}  ·  原始 HU")
+        self.case_title.setText(tr('Case {p0} · {p1} · Native HU' ,p0=self.case.case_id,p1=self.path_id))
 
     def update_geometry_status(self):
-        lm=self.case.canonical_lm;status=lm.get("status","ambiguous")
-        text=f"LM 共用段 0–{self.lm_end():.2f} mm · LAD 编辑 / LCX 同步显示" if status=="verified" else "无共享 LM" if status=="not_present" else "LM 映射待研究端 QA：不自动镜像，不影响保存"
-        if lm.get("ambiguous_ranges"):text+=" · 分叉过渡带由研究端检查，不要求医生重复确认"
-        self.geometry_status.setText(text+"   |   CPR 与 native 使用 LPS 毫米坐标")
+        lm=self.case.canonical_lm or {};status=lm.get("status","not_present")
+        relation=tr("Shared LM 0–{end:.2f} mm; edit on LAD / mirrored on LCX",end=self.lm_end()) if status=="verified" else tr("No shared LM") if status=="not_present" else tr("LM mapping requires technical review; no automatic mirroring.")
+        scope=tr("Annotation enabled") if self.annotation_allowed() else tr("View-only path")
+        self.geometry_status.setText(tr("{scope} · {relationship} · CPR and native coordinates use LPS millimeters",scope=scope,relationship=relation))
 
     def draft_snapshot(self):
         return {"a":self.a,"b":self.b,"label":deepcopy(self.label),"editing_id":self.editing_id,"anatomy":self.legacy_anatomy,"dirty":self.dirty,"reason":self.label.get("reason","")}
@@ -855,7 +1001,7 @@ class MainWindow(QMainWindow):
             for canvas in active:canvas.cancel_gesture()
             return False
         if not self.guard_draft():return False
-        self.clear_draft();self.hint("已退出修改；橙框位置保留，下一次应用为新的片段标签。")
+        self.clear_draft();self.hint(tr('Exited editing. The selection is retained; applying creates a new interval label.'))
         return True
 
     def finish_draft_gesture(self,before):
@@ -893,10 +1039,10 @@ class MainWindow(QMainWindow):
             if target is not None and abs(b-target)>1e-6:target=None
         changed=abs(self.a-a)>1e-9 or abs(self.b-b)>1e-9
         self.a=float(a);self.b=float(b);self.dirty=self.dirty or changed;self.selected_marker=None;self.snap_target=target
-        self.snap_caption=f"吸附 {target:.2f} mm · {alternate_modifier_label()} 可脱离" if target is not None else ""
+        self.snap_caption=tr('Snap {p0:.2f} mm · Hold {p1} to release' ,p0=target,p1=alternate_modifier_label()) if target is not None else ""
         peak=self.label.get("s_peak_stenosis_mm")
         if peak is not None and not self.a<=peak<self.b:
-            self.label.pop("s_peak_stenosis_mm",None);self.hint("原最狭窄位置已在框外，请重新指定")
+            self.label.pop("s_peak_stenosis_mm",None);self.hint(tr('The previous peak stenosis is outside the selection. Set it again.'))
         self.sync_controls();self.update_overlays();self.schedule_view_save()
 
     def clear_snap(self):self.snap_target=None;self.snap_caption="";self.track.update()
@@ -904,10 +1050,12 @@ class MainWindow(QMainWindow):
     def set_hide_overlays(self,value):self.hide_overlays=value;self.cpr.update()
 
     def set_label(self,key,value):
+        if self.case and not self.annotation_allowed():return
         before=self.draft_snapshot();self.label=transition_label(self.label,key,value)
         self.dirty=self.dirty or self.label!=before["label"];self.sync_controls();self.finish_draft_gesture(before)
 
     def typical_normal(self):
+        if self.case and not self.annotation_allowed():return
         before=self.draft_snapshot();self.label={"finding_status":"negative","plaque_composition":None,"stenosis_grade":"0","confidence":"high","reason":"","reason_codes":[],"entry_method":"typical_normal_preset"}
         self.dirty=self.dirty or self.label!=before["label"];self.sync_controls();self.finish_draft_gesture(before)
 
@@ -923,8 +1071,9 @@ class MainWindow(QMainWindow):
         if not self.label.get("reason_codes"):return
         before=self.draft_snapshot();self.label["reason_codes"]=[];self.dirty=True;self.sync_controls();self.finish_draft_gesture(before)
     def set_peak(self):
-        if not label_applicability(self.label)["peak_enabled"]:self.hint("仅可在已选非零狭窄等级的可评估病变段指定最狭窄处");return
-        if not self.a<=self.s<self.b:self.hint("最狭窄位置必须位于当前橙框内");return
+        if not self.annotation_allowed():return
+        if not label_applicability(self.label)["peak_enabled"]:self.hint(tr('Peak stenosis is available only for an evaluable lesion with a selected nonzero stenosis grade.'));return
+        if not self.a<=self.s<self.b:self.hint(tr('Peak stenosis must be inside the current selection.'));return
         before=self.draft_snapshot();self.label["s_peak_stenosis_mm"]=self.s;self.dirty=self.dirty or self.label!=before["label"];self.sync_controls();self.finish_draft_gesture(before)
     def clear_peak(self):
         if "s_peak_stenosis_mm" not in self.label:return
@@ -940,39 +1089,36 @@ class MainWindow(QMainWindow):
                 button.setChecked(self.label.get(key)==value)
                 button.setIcon(self.selected_icon if button.isChecked() else QIcon())
                 enabled=key=="finding_status" or applicable[{"plaque_composition":"composition_enabled","stenosis_grade":"stenosis_enabled","confidence":"confidence_enabled"}[key]]
-                button.setEnabled(enabled)
+                button.setEnabled(enabled and (self.case is None or self.annotation_allowed()))
             group.setExclusive(True)
             visible=key=="finding_status" or (applicable["finding_selected"] and finding!="non_evaluable" and not (key=="plaque_composition" and finding=="negative"))
             self.field_sections[key].setVisible(visible)
         self.peak_panel.setVisible(applicable["peak_enabled"])
         self.reason_panel.setVisible(applicable["reasons_enabled"])
-        self.flow_note.setText("不可评估：跳过2–4，原因可选；不会保存为正常或低把握诊断。" if finding=="non_evaluable" else "明确正常：无斑块、狭窄0%；请选择判断把握。" if finding=="negative" else "请从上向下选择；更改组成或狭窄后需重新确认把握。" if applicable["finding_selected"] else "先选择本段所见，再显示适用选项。")
+        self.flow_note.setText(tr('Not evaluable: skip fields 2–4; reasons are optional. This is not saved as normal or a low-confidence diagnosis.') if finding=="non_evaluable" else tr('Normal: no plaque and 0% stenosis. Select confidence.') if finding=="negative" else tr('Choose from top to bottom. Confirm confidence again after changing composition or stenosis.') if applicable["finding_selected"] else tr('Select an interval finding to show the applicable choices.'))
         for code,button in self.reason_buttons.items():
-            button.setEnabled(applicable["reasons_enabled"])
+            button.setEnabled(applicable["reasons_enabled"] and self.annotation_allowed())
             button.setChecked(code in self.label.get("reason_codes",[]));button.setIcon(self.selected_icon if button.isChecked() else QIcon())
-        old_reason=self.label.get("reason","")
-        legacy_codes=[text for code,text,_ in REASON_OPTIONS if code in self.label.get("reason_codes",[]) and not applicable["reasons_enabled"]]
-        legacy_text=("旧版备注（保留）："+old_reason if old_reason else "")+("\n旧版原因（保留，非当前可选项）："+"、".join(legacy_codes) if legacy_codes else "")
-        self.legacy_reason_label.setText(legacy_text.strip());self.legacy_reason_label.setVisible(bool(legacy_text))
+        self.update_legacy_reason_display()
         limit=self.path.length_mm if self.path else 999
         for spin in (self.start_spin,self.end_spin):spin.setMaximum(limit)
         self.start_spin.setValue(self.a);self.end_spin.setValue(self.b)
         for n,b in self.path_buttons.items():b.setChecked(n==self.path_id);b.setEnabled(self.case is not None and not self.loading)
-        self.draft_title.setText(f"修改片段 {self.editing_id[:8]}" if self.editing_id else "待标注 · 新片段")
+        self.draft_title.setText(tr('Editing interval {p0}' ,p0=self.editing_id[:8]) if self.editing_id else tr('Draft · New interval'))
         self.exit_edit_button.setVisible(bool(self.editing_id))
         review=self.edit_requires_review();rec=self.editing_record()
-        self.apply_button.setText("确认并应用  /  S 或 Enter" if review else "保存修改  /  S 或 Enter" if self.editing_id else "应用标签  /  S 或 Enter")
-        note="裁切保留了原段的汇总判断。请查看本段；点击‘确认并应用’即完成复核，无需额外勾选。" if review else "正在修改旧片段；移动或缩短后，退出的旧范围回到未标注。可点‘退出修改’保留橙框另标。" if self.editing_id else "应用后清空诊断；单击旧色块才能修改旧段。"
+        self.apply_button.setText(tr('Confirm and apply / S or Enter') if review else tr('Save changes / S or Enter') if self.editing_id else tr('Apply label / S or Enter'))
+        note=tr('Clipping retained the original interval summary. Review this interval and choose Confirm and apply. No extra checkbox is required.') if review else tr('Editing a saved interval. Moving or shortening it leaves the old range unannotated. Exit edit keeps the selection for a new label.') if self.editing_id else tr('Applying clears the finding. Click an existing overlay to edit a saved interval.')
         if rec and (rec.get("provenance",{}).get("label_scope")=="group_summary_only" or rec.get("provenance",{}).get("review_reason")=="canonical_split_group_summary_requires_subsegment_review"):
             original=rec["provenance"].get("source_label_group_summary",{})
-            composition=dict((v,t) for t,v in COMPOSITIONS).get(original.get("plaque_composition"),"未定")
-            stenosis=dict((v,t) for t,v in STENOSES).get(original.get("stenosis_grade"),"未定")
-            note=f"原跨分支整段判断：{composition} / 最大狭窄{stenosis}；不等于当前子段判断。此处可独立补充，或退出修改继续阅片；研究端保留整段汇总。"
-        if rec and rec.get("provenance",{}).get("training_geometry_eligible") is False:note+=" 几何问题由研究端 QA 处理，不阻止本次保存。"
+            composition=dict((v,t) for t,v in COMPOSITIONS).get(original.get("plaque_composition"),tr('undetermined'))
+            stenosis=dict((v,t) for t,v in STENOSES).get(original.get("stenosis_grade"),tr('undetermined'))
+            note=tr('Original cross-branch summary: {p0} / maximum stenosis {p1}. This is not the current subinterval judgment. Edit this interval independently or exit editing. The original summary is retained.' ,p0=composition,p1=stenosis)
+        if rec and rec.get("provenance",{}).get("training_geometry_eligible") is False:note=tr("{note}\nGeometry issues require technical review and do not prevent saving.",note=note)
         self.current_note.setText(note)
         self.current_note.setStyleSheet("color:#e6bd7e;" if review else "color:#92a2af;")
-        peak=self.label.get("s_peak_stenosis_mm");self.peak_label.setText(f"最狭窄位置：{peak:.2f} mm" if peak is not None else "最狭窄位置：未指定（辅助标记不代替）")
-        self.delete_button.setEnabled(bool(self.editing_id or self.selected_marker));self.apply_button.setEnabled(self.case is not None and not self.loading and not self.render_busy)
+        peak=self.label.get("s_peak_stenosis_mm");self.peak_label.setText(tr('Peak stenosis: {p0:.2f} mm' ,p0=peak) if peak is not None else tr('Peak stenosis: not set (markers do not substitute)'))
+        self.delete_button.setEnabled(bool(self.editing_id or self.selected_marker));self.apply_button.setEnabled(self.annotation_allowed() and not self.loading and not self.render_busy)
         self.update_summary()
         self.update_completion_display()
         self._syncing=False
@@ -981,11 +1127,11 @@ class MainWindow(QMainWindow):
         if not self.dirty:return True
         # An empty new orange range is navigation state, not a diagnosis to force.
         if not self.label and not self.editing_id:return self.save_view()
-        dialog=QMessageBox(self);dialog.setWindowTitle("当前草稿尚未应用")
-        dialog.setText("是否保存当前片段的判断？");dialog.setInformativeText("‘放弃草稿’仅丢弃未应用的改动，不删除已经保存的标签。")
-        apply=dialog.addButton("确认并应用" if self.edit_requires_review() else "应用并继续",QMessageBox.ButtonRole.AcceptRole)
-        discard=dialog.addButton("放弃草稿",QMessageBox.ButtonRole.DestructiveRole)
-        keep=dialog.addButton("返回编辑",QMessageBox.ButtonRole.RejectRole);dialog.setDefaultButton(keep);dialog.setEscapeButton(keep);dialog.exec()
+        dialog=QMessageBox(self);dialog.setWindowTitle(tr('Draft has not been applied'))
+        dialog.setText(tr('Save the judgment for this interval?'));dialog.setInformativeText(tr('Discard draft removes only unapplied changes. Saved labels remain intact.'))
+        apply=dialog.addButton(tr('Confirm and apply') if self.edit_requires_review() else tr('Apply and continue'),QMessageBox.ButtonRole.AcceptRole)
+        discard=dialog.addButton(tr('Discard draft'),QMessageBox.ButtonRole.DestructiveRole)
+        keep=dialog.addButton(tr('Return to editing'),QMessageBox.ButtonRole.RejectRole);dialog.setDefaultButton(keep);dialog.setEscapeButton(keep);dialog.exec()
         if dialog.clickedButton() is apply:return self.apply_current()
         if dialog.clickedButton() is discard:self.clear_draft();return True
         return False
@@ -999,26 +1145,27 @@ class MainWindow(QMainWindow):
         rec=next((r for r in self.state["annotations"] if r["annotation_id"]==annotation_id),None)
         if rec is None:return
         if rec["path_id"]!=self.path_id:
-            self.path_id=rec["path_id"];self.long_key=None;self.hint("共享 LM：已跳转 LAD 主视图编辑")
+            self.path_id=rec["path_id"];self.long_key=None;self.hint(tr('Shared LM: switched to LAD for editing.'))
         self.a=rec["s_start_mm"];self.b=rec["s_end_mm"];self.editing_id=annotation_id;self.selected_marker=None;self.label=deepcopy(rec["label"]);self.dirty=False
         self.legacy_anatomy=rec.get("anatomical_segment","");self.draft_undo.clear();self.draft_redo.clear()
         self.observe(self.label.get("s_peak_stenosis_mm",(self.a+self.b)/2));self.sync_controls();self.update_geometry_status();self.update_overlays()
-        self.hint("已选待确认片段：阅片后点‘确认并应用’或按 S / Enter；无需另外勾选。" if self.edit_requires_review() else "已选旧片段：拖框会修改此片段，点‘退出修改’可保留橙框另标。")
+        self.hint(tr('Review interval selected. Choose Confirm and apply or press S / Enter; no extra checkbox is required.') if self.edit_requires_review() else tr('Saved interval selected. Dragging edits it; Exit edit keeps the selection for a new label.'))
 
     def select_marker(self,marker_id):
         marker=next((m for m in self.state["markers"] if m["marker_id"]==marker_id),None)
         if marker:self.observe(marker["s_mm"]);self.selected_marker=marker_id;self.sync_controls();self.update_overlays()
 
     def bookmark(self):
-        if not self.state:return
+        if not self.state or not self.annotation_allowed():return
         try:
             result=add_marker(self.state,self.path_id,self.s)
-            if result==self.state:self.hint("此位置已有辅助标记");return
+            if result==self.state:self.hint(tr('A marker already exists at this position.'));return
             self.state=self.store.commit(result,"add_marker",{"path_id":self.path_id,"s_mm":self.s})
-            self.selected_marker=None;self.update_overlays();self.hint(f"辅助标记已放置于 {self.s:.2f} mm；未修改标签")
-        except Exception as exc:self.error("辅助标记未保存",exc)
+            self.selected_marker=None;self.update_overlays();self.hint(tr('Marker placed at {p0:.2f} mm. Labels unchanged.' ,p0=self.s))
+        except Exception as exc:self.error(tr('Marker not saved'),exc)
 
     def make_annotation(self,a,b,path_id,canonical,group):
+        if path_id not in self.case.manifest.get("annotation_scope",[]):raise ValueError(tr("The interval is outside the annotation scope."))
         label=prepare_label_for_submission(self.label);label.setdefault("reason","");label.setdefault("reason_codes",[])
         path=self.case.paths[path_id]
         anchors=[{"role":"start","point_lps_mm":path.point(a).tolist()},{"role":"end","point_lps_mm":path.point(b).tolist()}]
@@ -1035,7 +1182,7 @@ class MainWindow(QMainWindow):
         ambiguous=[r for r in self.case.canonical_lm.get("ambiguous_ranges",[]) if r["path_id"]==path_id and max(a,r["s_start_mm"])<min(b,r["s_end_mm"])-1e-6]
         if ambiguous:
             rec["provenance"].update(geometry_mapping_status="path_local_ambiguous",geometry_ambiguous_ranges=deepcopy(ambiguous),training_geometry_eligible=False,technical_qa_owner="research_team")
-        if self.case.canonical_lm.get("status") not in ("verified","not_present") and path_id in ("LAD","LCX"):
+        if self.case.canonical_lm and self.case.canonical_lm.get("status") not in ("verified","not_present") and path_id in ("LAD","LCX"):
             rec["provenance"].update(geometry_mapping_status="path_local_ambiguous",training_geometry_eligible=False,technical_qa_owner="research_team")
         previous=self.editing_record()
         if previous:
@@ -1047,11 +1194,12 @@ class MainWindow(QMainWindow):
 
     def apply_current(self):
         if not self.state or self.loading:return False
+        if not self.annotation_allowed():self.hint(tr("This path is view-only; it is outside the annotation scope."));return False
         if any(view.gesture for view in self.canvases+[self.track]):
-            self.hint("请先松开鼠标完成当前拖动，再应用标签")
+            self.hint(tr('Release the mouse to finish the current drag before applying.'))
             return False
         if self.render_busy:
-            self.hint("当前影像正在更新，请稍候再应用标签")
+            self.hint(tr('Wait for the images to finish updating before applying.'))
             return False
         try:
             validate_new_label(prepare_label_for_submission(self.label))
@@ -1087,42 +1235,42 @@ class MainWindow(QMainWindow):
             changed["case_status"]="in_progress"
             self.state=self.store.commit(changed,"apply",{"editing_id":self.editing_id,"label_group_id":group,"newest_wins":True})
             self.clear_draft();view_saved=self.save_view();self.refresh_queue()
-            self.save_status.setText(f"已保存 · 修订 {self.state['revision']}" if view_saved else "标签已保存；草稿/会话保存失败，请勿关闭")
-            self.hint("已应用；诊断已清空。拖橙框准备下一段，或单击旧色块修改。")
+            self.save_status.setText(tr('Saved · Revision {p0}' ,p0=self.state['revision']) if view_saved else tr('Labels saved; draft/session save failed. Keep this window open.'))
+            self.hint(tr('Applied; finding cleared. Select the next interval or click a saved overlay to edit.'))
             return True
-        except Exception as exc:self.error("标签未应用",exc);return False
+        except Exception as exc:self.error(tr('Label not applied'),exc);return False
 
     def delete_selected(self):
-        if not self.state:return
+        if not self.state or not self.annotation_allowed():return
         try:
             if self.selected_marker:
                 changed=delete_marker(self.state,self.selected_marker);self.state=self.store.commit(changed,"delete_marker");self.selected_marker=None
             elif self.editing_id:
                 changed=delete_annotation(self.state,self.editing_id);self.state=self.store.commit(changed,"delete_annotation",{"annotation_id":self.editing_id});self.clear_draft();self.refresh_queue()
-                self.hint(f"已删除片段：该范围回到待重阅；{primary_modifier_label()}+Z 可恢复")
+                self.hint(tr('Interval deleted; this range requires review. {p0}+Z restores it.' ,p0=primary_modifier_label()))
             else:return
             self.sync_controls();self.update_overlays();self.save_view()
-        except Exception as exc:self.error("删除未完成",exc)
+        except Exception as exc:self.error(tr('Deletion incomplete'),exc)
 
     def undo(self):
-        if not self.state:return
+        if not self.state or not self.annotation_allowed():return
         try:
             if self.draft_undo:
                 self.draft_redo.append(self.draft_snapshot());self.restore_draft(self.draft_undo.pop());self.schedule_view_save();return
             if self.dirty and not self.guard_draft():return
             result=self.store.undo(str(self.case.case_id),self.reader_id)
-            if result:self.state=result;self.clear_draft();self.refresh_queue();self.hint("已撤销整个事务；历史仍保留")
-        except Exception as exc:self.error("撤销失败",exc)
+            if result:self.state=result;self.clear_draft();self.refresh_queue();self.hint(tr('Transaction undone; history retained.'))
+        except Exception as exc:self.error(tr('Undo failed'),exc)
 
     def redo(self):
-        if not self.state:return
+        if not self.state or not self.annotation_allowed():return
         try:
             if self.draft_redo:
                 self.draft_undo.append(self.draft_snapshot());self.restore_draft(self.draft_redo.pop());self.schedule_view_save();return
             if self.dirty and not self.guard_draft():return
             result=self.store.redo(str(self.case.case_id),self.reader_id)
-            if result:self.state=result;self.clear_draft();self.refresh_queue();self.hint("已重做事务")
-        except Exception as exc:self.error("重做失败",exc)
+            if result:self.state=result;self.clear_draft();self.refresh_queue();self.hint(tr('Transaction redone.'))
+        except Exception as exc:self.error(tr('Redo failed'),exc)
 
     def schedule_view_save(self):
         if self.state and not self.loading and not self._closing:self.save_timer.start()
@@ -1138,12 +1286,12 @@ class MainWindow(QMainWindow):
                 view=self.view_state();self.store.save_view(str(self.case.case_id),self.reader_id,view);self.state["view_state"]=view
             return self._save_session()
         except Exception as exc:
-            self.save_status.setText("保存失败：请勿关闭");self.hint(f"草稿保存失败：{exc}");return False
+            self.save_status.setText(tr('Save failed: keep this window open'));self.hint(tr('Draft save failed: {p0}' ,p0=exc));return False
 
     def restore_view(self,view):
         self.clear_draft()
-        self.path_id=view.get("path_id","LAD")
-        if self.path_id not in self.case.paths:self.path_id="LAD"
+        self.path_id=view.get("path_id",next(iter(self.case.paths)))
+        if self.path_id not in self.case.paths:self.path_id=next(iter(self.case.paths))
         self.s=float(np.clip(view.get("s_mm",5),0,self.path.length_mm));self.a=0;self.b=min(10,self.path.length_mm)
         self.angle_deg=view.get("angle_deg",0.);self.offset_mm=view.get("offset_mm",0.);self.width_hu=view.get("window_width_hu",700.);self.level_hu=view.get("window_level_hu",250.)
         idx=self.case.native.world_to_index(self.path.point(self.s));self.native_z=int(np.clip(view.get("native_z",round(idx[2])),0,self.case.native.array_zyx.shape[0]-1))
@@ -1157,8 +1305,9 @@ class MainWindow(QMainWindow):
         if not self.case or not self.state:return None
         key=(id(self.state),self.state.get("revision"),self.case.manifest.get("geometry_id"))
         if refresh or key!=self._coverage_cache_key:
-            lengths={name:path.length_mm for name,path in self.case.paths.items()}
-            samples={name:path.distances.tolist() for name,path in self.case.paths.items()}
+            scope=set(self.case.manifest.get("annotation_scope",[]))
+            lengths={name:path.length_mm for name,path in self.case.paths.items() if name in scope}
+            samples={name:path.distances.tolist() for name,path in self.case.paths.items() if name in scope}
             self._coverage_cache=coverage_report(self.state,lengths,path_samples=samples,canonical_lm=self.case.canonical_lm)
             self._coverage_cache_key=key
         return self._coverage_cache
@@ -1170,7 +1319,7 @@ class MainWindow(QMainWindow):
         for rec in report["review_required"]:
             if not rec.get("annotation_id") and any(g["path_id"]==rec["path_id"] and g["s_start_mm"]<=rec["s_start_mm"]+1e-6 and g["s_end_mm"]>=rec["s_end_mm"]-1e-6 for g in report["gaps"]):continue
             issues.append(dict(rec,kind="review" if rec.get("annotation_id") else "rereview"))
-        return sorted(issues,key=lambda r:(("LAD","LCX","RCA").index(r["path_id"]),r["s_start_mm"],r["kind"]))
+        return sorted(issues,key=lambda r:(list(self.case.paths).index(r["path_id"]),r["s_start_mm"],r["kind"]))
 
     def coverage_issues_for_path(self):
         return [r for r in self.coverage_issues() if r["path_id"]==self.path_id]
@@ -1178,22 +1327,22 @@ class MainWindow(QMainWindow):
     @staticmethod
     def coverage_issue_text(issue):
         kind=issue.get("kind")
-        reason="未标注" if kind=="gap" else "待重阅" if kind=="rereview" else "片段需复核"
+        reason=tr('Unannotated') if kind=="gap" else tr('Needs rereading') if kind=="rereview" else tr('Interval needs review')
         provenance=issue.get("provenance",{})
-        if kind=="review":reason="范围 / 原判断待确认，选中后确认并应用"
-        return f"{issue['path_id']} · {issue['s_start_mm']:.2f}–{issue['s_end_mm']:.2f} mm · {reason}"
+        if kind=="review":reason=tr('Confirm the range and prior judgment, then apply')
+        return tr("{path} · {start:.2f}–{end:.2f} mm · {reason}",path=issue["path_id"],start=issue["s_start_mm"],end=issue["s_end_mm"],reason=reason)
 
     def update_completion_display(self):
         if not hasattr(self,"completion_caption"):return
         report=self.completion_report()
         if report is None:
-            self.completion_caption.setText("覆盖检查：尚未载入");self.next_issue_button.setEnabled(False);return
-        self.completion_caption.setText(f"本例 {report['coverage_percent']:.2f}% · 未标 {len(report['gaps'])} / 复核 {len(report['review_required'])}")
-        self.completion_caption.setToolTip(f"按CPR切片位置统计，已标 {report['covered_slices']} / {report['total_slices']}；可靠共享LM只计一次。\n红色缺口可点击定位；另有研究端 QA {report.get('technical_qa_count',0)} 条，不要求医生重复确认。完成标记不代表全部可用于训练。")
+            self.completion_caption.setText(tr('Coverage: no case loaded'));self.next_issue_button.setEnabled(False);return
+        self.completion_caption.setText(tr('Case {p0:.2f}% · Gaps {p1} / Reviews {p2}' ,p0=report['coverage_percent'],p1=len(report['gaps']),p2=len(report['review_required'])))
+        self.completion_caption.setToolTip(tr('Annotated CPR slice positions: {p0} / {p1}. Verified shared LM is counted once.\nClick red gaps to navigate. {p2} technical review items remain; repeated reader confirmation is not required. Completion does not certify training eligibility.' ,p0=report['covered_slices'],p1=report['total_slices'],p2=report.get('technical_qa_count', 0)))
         self.next_issue_button.setEnabled(bool(self.coverage_issues(report)))
         for path,button in self.path_buttons.items():
             detail=report.get("by_path",{}).get(path,{})
-            button.setToolTip(f"{path} · 已标 {detail.get('coverage_percent',0):.2f}%（LM不重复计数）")
+            button.setToolTip(tr('{p0} · Annotated {p1:.2f}% (shared LM counted once)' ,p0=path,p1=detail.get('coverage_percent', 0)))
 
     def jump_to_coverage_issue(self,issue):
         if not self.guard_draft():return False
@@ -1204,37 +1353,37 @@ class MainWindow(QMainWindow):
             self.a=max(0.,issue["s_start_mm"]);self.b=min(self.path.length_mm,issue["s_end_mm"])
             self.observe((self.a+self.b)/2);self.sync_controls();self.update_geometry_status();self.update_overlays()
             self.cpr.center_observation();self.schedule_view_save()
-        self.track.setFocus();self.hint(self.coverage_issue_text(issue)+"；橙框已定位，请阅片后应用标签。")
+        self.track.setFocus();self.hint(tr("{issue}. Selection positioned; review the images before applying.",issue=self.coverage_issue_text(issue)))
         return True
 
     def next_coverage_issue(self):
         issues=self.coverage_issues()
         if not issues:return
-        path_order=("LAD","LCX","RCA");here=(path_order.index(self.path_id),self.s)
+        path_order=list(self.case.paths);here=(path_order.index(self.path_id),self.s)
         later=[r for r in issues if (path_order.index(r["path_id"]),r["s_start_mm"])>here]
         self.jump_to_coverage_issue(later[0] if later else issues[0])
 
     def build_completion_dialog(self,report):
-        dialog=QDialog(self);dialog.setWindowTitle("本例覆盖检查 · 点击缺口定位");dialog.resize(650,460)
-        layout=QVBoxLayout(dialog);heading=QLabel(f"已标 {report['coverage_percent']:.2f}%（{report['covered_slices']} / {report['total_slices']} 个切片位置）")
+        dialog=QDialog(self);dialog.setWindowTitle(tr('Case coverage · Click a gap to navigate'));dialog.resize(650,460)
+        layout=QVBoxLayout(dialog);heading=QLabel(tr('Annotated {p0:.2f}% ({p1} / {p2} slice positions)' ,p0=report['coverage_percent'],p1=report['covered_slices'],p2=report['total_slices']))
         heading.setStyleSheet("font-size:17px;font-weight:600;");layout.addWidget(heading)
         detail=[]
         for path,row in report.get("by_path",{}).items():detail.append(f"{path}  {row.get('coverage_percent',0):.2f}%")
         layout.addWidget(QLabel("　 |　 ".join(detail)))
-        note=QLabel(f"未标 {len(report['gaps'])}处，需复核 {len(report['review_required'])}处。\n红色底条可点击补标；下列条目单击选中，双击直接定位。未标注不会补成正常。");note.setWordWrap(True);layout.addWidget(note)
+        note=QLabel(tr('{p0} gaps and {p1} review items.\nClick an item to select it; double-click to navigate. Unannotated areas are never filled as normal.' ,p0=len(report['gaps']),p1=len(report['review_required'])));note.setWordWrap(True);layout.addWidget(note)
         items=QListWidget();items.setObjectName("completionIssues");layout.addWidget(items,1)
         for issue in self.coverage_issues(report):
             item=QListWidgetItem(self.coverage_issue_text(issue));item.setData(Qt.ItemDataRole.UserRole,issue);items.addItem(item)
         if items.count():items.setCurrentRow(0)
         warnings=report.get("geometry_warnings",[])
         if warnings or report.get("technical_qa_count"):
-            warning=QLabel("另有几何映射 / 整段汇总待研究端 QA；不阻止医生完成，不要求重复确认；导出仍保留限制。");warning.setWordWrap(True);layout.addWidget(warning)
+            warning=QLabel(tr('Geometry or group summaries require technical review. This does not prevent reader completion; export retains the limitations.'));warning.setWordWrap(True);layout.addWidget(warning)
         allowed=bool(report.get("can_override"))
-        explanation=QLabel("覆盖已超过90%，可选择依然完成；将明确记录遗漏/待复核，不代表全覆盖或训练验收。" if allowed else "覆盖必须严格超过90%才可选择依然完成；目前请先定位补标（显示四舍五入不改变实际阈值）。")
+        explanation=QLabel(tr('Coverage exceeds 90%. You may complete with gaps, which remain explicitly recorded. This does not certify full coverage or training eligibility.') if allowed else tr('Coverage must be strictly greater than 90% to complete with gaps. Continue annotating; displayed rounding does not change the threshold.'))
         explanation.setWordWrap(True);layout.addWidget(explanation)
-        row=QHBoxLayout();locate=self.button("定位所选");locate.setEnabled(items.count()>0);row.addWidget(locate);row.addStretch()
-        keep=self.button("继续标注",dialog.reject);keep.setDefault(True);row.addWidget(keep)
-        override=self.button("依然标记为已完成");override.setObjectName("completeWithGaps");override.setEnabled(allowed);row.addWidget(override);layout.addLayout(row)
+        row=QHBoxLayout();locate=self.button(tr('Locate selected'));locate.setEnabled(items.count()>0);row.addWidget(locate);row.addStretch()
+        keep=self.button(tr('Continue annotation'),dialog.reject);keep.setDefault(True);row.addWidget(keep)
+        override=self.button(tr('Complete with gaps'));override.setObjectName("completeWithGaps");override.setEnabled(allowed);row.addWidget(override);layout.addLayout(row)
         def go():
             item=items.currentItem()
             if item and self.jump_to_coverage_issue(item.data(Qt.ItemDataRole.UserRole)):dialog.accept()
@@ -1251,9 +1400,9 @@ class MainWindow(QMainWindow):
             changed=mark_case_complete(self.state,fresh,allow_incomplete=allow_incomplete)
             self.state=self.store.commit(changed,"mark_complete",{"explicit_override":allow_incomplete})
             self.refresh_queue();self.update_completion_display();self.update_overlays()
-            self.hint("已标记完成（保留缺口 / 待复核），未填补正常标签。" if self.state["case_status"]=="complete_with_gaps" else "本例覆盖检查通过，已标记完成；不等于双读裁决完成。")
+            self.hint(tr('Marked complete with gaps / review items retained. No normal labels were filled in.') if self.state["case_status"]=="complete_with_gaps" else tr('Coverage passed and the case is complete. This does not certify dual-reader adjudication.'))
             return True
-        except Exception as exc:self.error("完成状态未保存",exc);return False
+        except Exception as exc:self.error(tr('Completion status not saved'),exc);return False
 
     def mark_complete(self):
         if not self.case or not self.guard_draft():return
@@ -1264,56 +1413,92 @@ class MainWindow(QMainWindow):
     def export_current(self):
         if not self.case:return
         if not self.save_view():return
-        folder=QFileDialog.getExistingDirectory(self,"选择标签导出目录（不包含影像）")
+        folder=QFileDialog.getExistingDirectory(self,tr('Choose an annotation export folder (images excluded)'))
         if not folder:return
         try:
             if not self.save_view():return
             result=self.store.export_case(str(self.case.case_id),self.reader_id,Path(folder))
-            self.hint(f"标签已导出：{result}");QMessageBox.information(self,"已导出",str(result)+"\n只导出已应用标签；未应用内容保留为独立草稿，不当作正式标注。无需回传影像。")
-        except Exception as exc:self.error("导出失败",exc)
+            self.hint(tr('Annotations exported: {p0}' ,p0=result));QMessageBox.information(self,tr("Exported"),tr("Exported to {path}.\nOnly applied labels are formal annotations; unapplied content remains a draft. Images are not included.",path=str(result)))
+        except Exception as exc:self.error(tr('Export failed'),exc)
 
     def export_all(self):
         self._export_cases(None)
 
     def export_batch(self):
         if not self.active_package_root:
-            self.hint("请先打开当前批次的数据包文件夹；全部历史备份可点导出按钮右侧小箭头。")
+            self.hint(tr('Open a package folder first. Use the export arrow for all project history.'))
             return
         self._export_cases(set(self.active_package_cases))
 
     def _export_cases(self,case_ids):
         if not self.save_view():return
-        scope="全部历史" if case_ids is None else "当前批次"
-        folder=QFileDialog.getExistingDirectory(self,f"选择{scope}标签导出目录（建议新建结果文件夹）")
-        if not folder:return
-        if not self.save_view():return
-        count=0
+        scope=tr("All project history") if case_ids is None else tr("Current batch")
+        folder=QFileDialog.getExistingDirectory(self,tr("Choose a folder for {scope} annotations",scope=scope))
+        if not folder or not self.save_view():return
         try:
+            selected=[]
             for cid in self.store.list_case_ids(self.reader_id):
                 if case_ids is not None and cid not in case_ids:continue
                 state=self.store.load(cid,self.reader_id)
-                if state.get("annotations") or state.get("markers") or state.get("rereview_intervals"):
-                    self.store.export_case(cid,self.reader_id,Path(folder));count+=1
-            QMessageBox.information(self,"批量导出完成",f"{scope}：导出 {count} 例的 {self.reader_id} 独立记录（不需要连接影像）。\n未应用草稿仍为草稿；未标注不补成正常。\n导出不会清空标签。可将整个结果文件夹压缩回传，无需回传影像。")
-        except Exception as exc:self.error("批量导出未完成",exc)
+                if state.get("annotations") or state.get("markers") or state.get("rereview_intervals"):selected.append(cid)
+            result=self.store.export_batch(self.reader_id,Path(folder),case_ids=selected)
+            QMessageBox.information(self,tr("Batch export complete"),tr("{scope}: exported {count} cases for reader {reader}.\nBatch manifest: {manifest}\nDrafts remain drafts and gaps remain unannotated. Images are not included.",scope=scope,count=result["case_count"],reader=self.reader_id,manifest=result["manifest"]))
+        except Exception as exc:self.error(tr("Batch export incomplete"),exc)
 
     def import_labels(self):
         if not self.guard_draft() or not self.save_view():return
-        path,_=QFileDialog.getOpenFileName(self,"导入本读者的标签 JSON",filter="JSON (*.json)")
+        path,_=QFileDialog.getOpenFileName(self,tr("Import this reader's annotation JSON"),filter="JSON (*.json)")
         if not path:return
         try:
+            from .storage import io_path
+            incoming=json.loads(io_path(path).read_text(encoding="utf-8-sig"))
+            if not self.project_id or incoming.get("source",{}).get("project_id")!=self.project_id:
+                raise ValueError(tr("This annotation export belongs to another project."))
             result=self.store.import_case(path,reader_id=self.reader_id)
             self.refresh_queue()
             if self.case and str(result["case_id"])==str(self.case.case_id):self.state=self.store.load(str(self.case.case_id),self.reader_id,self.source_info());self.clear_draft()
-            self.hint("导入完成；未自动覆盖其他读者或冲突版本")
-        except Exception as exc:self.error("标签未导入",exc)
+            self.hint(tr('Import complete. Other readers and conflicting versions were not overwritten.'))
+        except Exception as exc:self.error(tr('Annotations not imported'),exc)
+
+    def import_legacy_labels(self):
+        if not self.case or not self.guard_draft() or not self.save_view():return
+        path,_=QFileDialog.getOpenFileName(self,tr("Select annotations.json from a complete legacy export"),filter="JSON (*.json)")
+        if not path:return
+        try:
+            from .legacy import import_annotations
+            old=json.loads(Path(path).read_text(encoding="utf-8-sig"))
+            if old.get("reader_id")!=self.reader_id:
+                raise ValueError(tr("The export belongs to reader {reader}. Switch to that reader before importing.",reader=old.get("reader_id","")))
+            result=import_annotations(path,self.store,self.case)
+            self.state=self.store.load(str(result["case_id"]),self.reader_id,self.source_info())
+            self.clear_draft();self.refresh_queue();self.update_overlays()
+            self.hint(tr("Legacy export imported with its checksums and audit history. The original database was not opened."))
+        except Exception as exc:self.error(tr("Legacy annotations were not imported"),exc)
+
+    def import_legacy_package(self):
+        if self.loading:return
+        source=QFileDialog.getExistingDirectory(self,tr("Select a legacy package folder (not a database)"))
+        if not source:return
+        destination,_=QFileDialog.getSaveFileName(self,tr("Choose a new destination folder for the converted package"))
+        if not destination:return
+        dialog=QDialog(self);dialog.setWindowTitle(tr("New project identity"))
+        layout=QVBoxLayout(dialog);layout.addWidget(QLabel(tr("Enter a portable project ID (letters, digits, dots, underscores or hyphens).")))
+        identity=QLineEdit();identity.setAccessibleName(tr("Project ID"));layout.addWidget(identity)
+        row=QHBoxLayout();accept=self.button(tr("Convert package"),dialog.accept);cancel=self.button(tr("Cancel"),dialog.reject);row.addWidget(accept);row.addWidget(cancel);layout.addLayout(row)
+        if dialog.exec()!=QDialog.DialogCode.Accepted:return
+        try:
+            from .legacy import import_package
+            import_package(source,destination,identity.text().strip())
+            self.import_package(Path(destination))
+        except Exception as exc:self.error(tr("Legacy package was not converted"),exc)
 
     def show_help(self):
-        architecture={"x86_64":"Intel x86_64","arm64":"Apple Silicon arm64"}.get(runtime_platform.machine(),runtime_platform.machine())
-        platform_note=f"Mac {__version__}：{architecture}，兼容构建目标 macOS 12+；首次打开及医生实际设备操作仍需确认。" if is_macos() else f"Windows {__version__}：与 Mac 版共享标注引擎；既有数据包与标签兼容。"
-        platform_note+="\n原始 CT 默认显示 180°，标题 90° 按钮每次顺时针转 90°，切换血管及重启保留。Z 切换三窗绿色参考线；不改变标签或坐标。"
-        platform_note+="\n当前目录模式：每次打开一个解压后的批次文件夹，只列出其中病例。选父目录会包含其子包。切换不删除旧标注，重新打开旧目录即可继续。‘导出本批’只导出当前批次；右侧小箭头可导出本读者全部历史备份。"
-        QMessageBox.information(self,"使用与数据安全", "1. 解压数据包，打开其文件夹；确认读者编号。\n2. 滚轮 / 双指滚动阅片，Space 放辅助标记，拖橙框确定范围。\n3. 点击标签或‘典型正常段’，再点击应用 / S / Enter。\n4. 单击已有色块可修改；重叠部分以新标签为准。\n5. 待确认残片直接‘确认并应用’，无需额外勾选。\n6. ‘退出修改’保留橙框另标；几何问题由研究端 QA 处理。\n\n应用成功即保存；草稿单独自动恢复，不是正式标签。导出不强迫应用草稿。‘导出本批’仅包含当前目录的已标病例；右侧小箭头里的‘全部历史’包含本读者在数据库中的已标病例，影像盘断开也可备份。压缩完整结果文件夹回传，无需影像。\n\n应用后不继承诊断。缩短或删除旧段留下的空白是未标注，不是正常。所有已保存操作可撤销。\n\n数据库："+str(self.db_path)+"\n请定期导出备份，不要把正在写入的数据库放入同步盘。\n\n"+platform_note+"\n本程序用于研究标注，不用于临床诊断。")
+        QMessageBox.information(self,tr("Help and data safety"),tr(
+            "Open a package root and check the project and reader ID. Each project has an independent local database. Only paths in the declared annotation scope can be labeled; other paths are view-only.\n\n"
+            "Scroll to review images. Space places a marker. Drag the orange selection to set an interval, choose a finding and apply with S / Enter. Click saved overlays to edit. New labels replace overlapping labels; shortening or deleting leaves unannotated gaps.\n\n"
+            "Labels save when applied; drafts recover separately. Language changes preserve drafts, undo history and the current view. Switching projects saves the current draft before opening the other database. Export batch uses the current package; project history includes this reader's saved records, even when images are disconnected.\n\n"
+            "Native CT starts at 0°. The 90° button rotates the display; Z toggles reference lines. These controls do not change native coordinates.\n\n"
+            "Database: {database}\nExport backups regularly. Keep live databases outside synchronized folders. This tool supports research annotation, not clinical diagnosis.",database=str(self.db_path)))
 
     def closeEvent(self,event):
         if self._closing:event.accept();return
@@ -1323,17 +1508,17 @@ class MainWindow(QMainWindow):
         self._last_close_save_succeeded=bool(self.save_view())
         if not self._last_close_save_succeeded:
             if not self._smoke_silent_exit:
-                QMessageBox.warning(self,"退出已暂停","草稿保存失败。请检查磁盘可用空间或导出当前标签，再重试退出。")
+                QMessageBox.warning(self,tr('Exit paused'),tr('Draft save failed. Check available disk space or export your labels, then retry closing.'))
             event.ignore();return
         self._closing=True;self.render_timer.stop();self.save_timer.stop()
-        self.pool.clear();self.pool.waitForDone(3000);self.store.close();self._db_lock.unlock();self._close_completed=True;event.accept()
+        self.pool.clear();self.pool.waitForDone(3000);self._discard_pending_project();self.app.removeEventFilter(self);self.store.close();self._db_lock.unlock();self._close_completed=True;event.accept()
 
 
 class Neighbor(QWidget):
     def __init__(self,c,offset):
         super().__init__();self.c=c;self.offset=offset;self.s=0.;self.hu=None;self.qimage=None
         self.setFixedHeight(106);self.setMinimumWidth(48);self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setToolTip("点击将此邻近横截面设为当前观察位置")
+        self.setToolTip(tr('Click to move the observation to this neighboring cross-section.'))
     def set_hu(self,s,hu):self.s=s;self.hu=hu;self.rewindow()
     def rewindow(self):
         if self.hu is not None:
@@ -1352,68 +1537,24 @@ class Neighbor(QWidget):
         if event.button()==Qt.MouseButton.LeftButton and self.qimage:self.c.observe(self.s);self.c.cpr.setFocus()
 
 
-def finalize_smoke_test(window,output,started,forced_failure=None,verify_display=False,folder_scope_package=None):
-    """Publish PASS only after screenshot and the ordinary save/close gate pass.
-
-    This runs only for explicit, isolated smoke QA. Failure is returned to the
-    process runner; a failed save still vetoes the window close, without a
-    modal dialog leaving an unattended QA process blocked forever.
-    """
-    output=Path(output);output.mkdir(parents=True,exist_ok=True)
-    app=QApplication.instance();case=window.case
-    report={"status":"FAIL","app_version":__version__,"frozen":bool(getattr(sys,"frozen",False)),
-            "executable":sys.executable,"qt_platform":app.platformName(),"host_platform":sys.platform,
-            "host_machine":runtime_platform.machine(),"host_macos_version":runtime_platform.mac_ver()[0] if is_macos() else None,
-            "logical_window_size":[window.width(),window.height()],"device_pixel_ratio":float(window.devicePixelRatioF()),
-            "native_cocoa_runtime":app.platformName()=="cocoa","startup_seconds":round(time.monotonic()-started,3),
-            "clinical_labels_created":False,"clean_windows_acceptance":False,"clean_macos_acceptance":False,
-            "system_first_open_acceptance":False,"physical_input_acceptance":False,"reader_acceptance":False,
-            "screenshot_saved":False,"view_saved_on_close":False,"close_accepted":False,"close_completed":False}
-    failures=[]
-    if forced_failure:failures.append(forced_failure)
-    try:
-        if case:
-            report.update(case_id=str(case.case_id),geometry_id=case.manifest.get("geometry_id"),
-                          image_shapes={n:list(p.volume.shape) for n,p in case.paths.items()},native_shape=list(case.native.array_zyx.shape))
-        if not case or window.loading or window.render_busy or any(canvas.qimage is None for canvas in window.canvases):
-            failures.append("IMAGES_NOT_READY")
-        elif not forced_failure:
-            if verify_display:
-                from .display_smoke import verify_display_controls
-                report["display_controls"]=verify_display_controls(window,output)
-            if folder_scope_package is not None:
-                from .folder_smoke import verify_folder_controls
-                report["folder_scope_controls"]=verify_folder_controls(window,folder_scope_package,output)
-            screenshot=output/"packaged_app.png"
-            report["screenshot_saved"]=bool(window.grab().save(str(screenshot))) and screenshot.is_file() and screenshot.stat().st_size>0
-            if not report["screenshot_saved"]:failures.append("SCREENSHOT_SAVE_FAILED")
-    except Exception as exc:failures.append(f"SCREENSHOT_OR_METADATA_FAILED: {exc}")
-    previous_silent=window._smoke_silent_exit;window._smoke_silent_exit=True
-    try:
-        report["close_accepted"]=bool(window.close())
-        report["view_saved_on_close"]=window._last_close_save_succeeded is True
-        report["close_completed"]=bool(window._close_completed)
-        if not report["view_saved_on_close"]:failures.append("VIEW_SAVE_FAILED")
-        if not report["close_accepted"] or not report["close_completed"]:failures.append("CLOSE_NOT_COMPLETED")
-    except Exception as exc:failures.append(f"CLOSE_FAILED: {exc}")
-    finally:window._smoke_silent_exit=previous_silent
-    report["status"]="PASS" if not failures else forced_failure or "FAIL"
-    if failures:report["failures"]=failures
-    (output/"smoke_test.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
-    return report
-
-
 def main(argv=None):
-    parser=argparse.ArgumentParser(description="Offline ImageCAS-X CPR interval annotation workstation")
+    parser=argparse.ArgumentParser(description="Offline Coronary Annotation Studio")
     parser.add_argument("--package",type=Path);parser.add_argument("--case");parser.add_argument("--reader",default=None);parser.add_argument("--db",type=Path)
-    parser.add_argument("--smoke-test-output",type=Path,help="Write packaged-app diagnostic evidence and exit; does not create clinical labels")
-    parser.add_argument("--smoke-test-next-package",type=Path,help="With isolated smoke QA only: verify two real package folders do not accumulate")
+    parser.add_argument("--workflow-smoke-output",type=Path,help="New output directory for the synthetic workflow gate")
+    parser.add_argument("--workflow-smoke-phase",choices=("create","resume"))
+    parser.add_argument("--workflow-smoke-language",choices=("en","zh_CN"),default="en")
     args=parser.parse_args(argv)
-    if args.smoke_test_next_package is not None and (args.smoke_test_output is None or args.package is None):
-        parser.error("--smoke-test-next-package requires --smoke-test-output and --package")
-    if args.smoke_test_output is not None and args.db is None:
-        args.db=args.smoke_test_output.resolve()/"qa_workspace"/"annotations.sqlite"
-    app=QApplication(sys.argv[:1]);app.setApplicationName("ImageCASXAnnotator");app.setOrganizationName("ImageCASXResearch")
+    workflow=args.workflow_smoke_output is not None
+    if not workflow and args.workflow_smoke_phase is not None:parser.error("Workflow output and phase must be supplied together")
+    if workflow:
+        from .workflow_smoke import prepare_workflow
+        try:args.workflow_smoke_output=prepare_workflow(args)
+        except (OSError,ValueError,KeyError,TypeError) as exc:
+            print(json.dumps({'status':'FAIL','stage':'preflight','failure':str(exc),'exit_code':2}),file=sys.stderr)
+            return 2
+    app=QApplication(sys.argv[:1]);app.setApplicationName("Coronary Annotation Studio");app.setOrganizationName("CoronaryAnnotationStudio")
+    app.setQuitOnLastWindowClosed(not workflow)
+    runner=None
     def exception_hook(kind,value,tb):
         message="".join(traceback.format_exception(kind,value,tb))
         if sys.stderr:sys.stderr.write(message)
@@ -1421,22 +1562,24 @@ def main(argv=None):
         try:
             logdir.mkdir(parents=True,exist_ok=True)
             with (logdir/"errors.log").open("a",encoding="utf-8") as log:log.write(message+"\n")
-        except OSError as exc:
-            if sys.stderr:sys.stderr.write(f"Error log unavailable: {exc}\n")
-        if args.smoke_test_output is not None:
-            app.exit(2)
-        else:QMessageBox.critical(None,"程序错误（未保存操作请检查）",message[-3000:])
+        except OSError:pass
+        if workflow:
+            if runner is not None:runner.fail(value)
+            else:
+                (args.workflow_smoke_output/"workflow-report.json").write_text(json.dumps({"status":"FAIL","failure":message,"phase":args.workflow_smoke_phase,"exit_code":2},indent=2))
+                app.exit(2)
+        else:
+            box=QMessageBox();box.setIcon(QMessageBox.Icon.Critical)
+            box.setWindowTitle(tr("Application error (check unsaved work)"))
+            box.setText(tr("This operation could not be completed. Open the technical details for the original error."))
+            box.setDetailedText(message);box.exec()
     sys.excepthook=exception_hook
-    window=MainWindow(args.db,args.package,args.reader,args.case,restore_last=not bool(args.smoke_test_output));window.show()
-    if args.smoke_test_output:
-        started=time.monotonic();output=args.smoke_test_output;output.mkdir(parents=True,exist_ok=True)
-        timer=QTimer(window)
-        def check_ready():
-            if window.case and window.cpr.qimage is not None and not window.loading and not window.render_busy:
-                timer.stop();report=finalize_smoke_test(window,output,started,verify_display=True,folder_scope_package=args.smoke_test_next_package)
-                # No second close: it could duplicate a save or a failure dialog.
-                app.exit(0 if report["status"]=="PASS" else 2)
-            elif time.monotonic()-started>90:
-                timer.stop();finalize_smoke_test(window,output,started,forced_failure="FAIL_TIMEOUT");app.exit(2)
-        timer.timeout.connect(check_ready);timer.start(100)
+    try:window=MainWindow(args.db,args.package,args.reader,args.case)
+    except Exception as exc:
+        exception_hook(type(exc),exc,exc.__traceback__)
+        return 2
+    if workflow:
+        from .workflow_smoke import WorkflowRunner
+        runner=WorkflowRunner(window,args.workflow_smoke_output,args.workflow_smoke_phase,args.workflow_smoke_language)
+    window.show()
     return app.exec()

@@ -5,6 +5,8 @@ The widget never writes labels; a drag only changes a recoverable draft.
 """
 from __future__ import annotations
 
+from .i18n import tr
+
 import math
 import time
 from copy import deepcopy
@@ -13,6 +15,8 @@ import numpy as np
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal, QTimer
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPolygonF, QBrush
 from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout
+
+from .i18n_widgets import QWidget, QLabel, QPushButton
 
 from .domain import snap_endpoint,effective_reader_review_required
 from .imaging import window_uint8
@@ -56,8 +60,8 @@ class WindowLevelPad(QWidget):
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setCursor(Qt.CursorShape.SizeAllCursor)
         self.setObjectName("window_level_pad")
-        self.setAccessibleName("窗宽窗位拖动板")
-        self.setToolTip("左键拖动：横向窗宽、纵向窗位；双击复位；Esc 取消本次拖动")
+        self.setAccessibleName(tr('Window and level drag pad'))
+        self.setToolTip(tr('Left-drag horizontally for window and vertically for level. Double-click resets; Esc cancels the drag.'))
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -68,7 +72,7 @@ class WindowLevelPad(QWidget):
         painter.drawLine(center.x(), 12, center.x(), self.height() - 12)
         painter.setPen(TEXT)
         painter.drawText(self.rect().adjusted(4, 4, -4, -4), Qt.AlignmentFlag.AlignCenter,
-                         "左键拖动\n← 窗宽 →　　↑ 窗位 ↓")
+                         tr('Left-drag\n← Window →    ↑ Level ↓'))
 
     def mousePressEvent(self, event):
         if event.button() != Qt.MouseButton.LeftButton:
@@ -131,7 +135,7 @@ class WindowLevelPopover(QWidget):
         super().__init__(parent, Qt.WindowType.Popup)
         self.c = controller
         self.setObjectName("window_level_popover")
-        self.setWindowTitle("窗宽 / 窗位")
+        self.setWindowTitle(tr('Window / level'))
         self.setFixedWidth(280)
         layout = QVBoxLayout(self)
         self.value_label = QLabel(self)
@@ -140,11 +144,11 @@ class WindowLevelPopover(QWidget):
         self.pad = WindowLevelPad(controller, self)
         layout.addWidget(self.pad)
         footer = QHBoxLayout()
-        self.reset_button = QPushButton("复位 700 / 250", self)
+        self.reset_button = QPushButton(tr('Reset 700 / 250'), self)
         self.reset_button.setObjectName("window_level_reset")
         self.reset_button.clicked.connect(self.pad.reset_window)
         footer.addWidget(self.reset_button)
-        self.close_button = QPushButton("关闭", self)
+        self.close_button = QPushButton(tr('Close'), self)
         self.close_button.clicked.connect(self.close)
         footer.addWidget(self.close_button)
         layout.addLayout(footer)
@@ -152,7 +156,7 @@ class WindowLevelPopover(QWidget):
         self.refresh()
 
     def refresh(self):
-        self.value_label.setText(f"窗宽 {self.c.width_hu:.0f} HU　窗位 {self.c.level_hu:.0f} HU")
+        self.value_label.setText(tr('Window {p0:.0f} HU · Level {p1:.0f} HU' ,p0=self.c.width_hu,p1=self.c.level_hu))
 
     def popup_at(self, global_position):
         self.refresh()
@@ -193,11 +197,12 @@ class ImageCanvas(QWidget):
         self.held_snap = None
         self._native_wheel_remainder = 0.0
         self._native_wheel_path = None
-        self.setMinimumSize(130, 120)
+        self.setMinimumSize(130, 80)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setMouseTracking(True)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
         self.setObjectName(f"canvas_{kind}")
+        self.setAccessibleName(tr({"cpr":"Longitudinal CPR image","cross":"Orthogonal cross-section image","native":"Native CT image"}[kind]))
         self._edge_timer = QTimer(self)
         self._edge_timer.setInterval(40)
         self._edge_timer.timeout.connect(self._edge_scroll)
@@ -218,7 +223,7 @@ class ImageCanvas(QWidget):
         self.update()
 
     def native_rotation_quarters(self):
-        return int(getattr(self.c, "native_rotation_quarters", 2)) % 4
+        return int(getattr(self.c, "native_rotation_quarters", 0)) % 4
 
     def _native_size(self):
         """Unrotated width/height, independent of displayed QImage dimensions."""
@@ -233,7 +238,7 @@ class ImageCanvas(QWidget):
         if self.qimage is not None:
             width, height = self.qimage.width(), self.qimage.height()
             return (height, width) if self.native_rotation_quarters() % 2 else (width, height)
-        raise ValueError("Native image is not ready")
+        raise ValueError(tr("Native image is not ready"))
 
     def native_index_to_screen(self, x, y):
         """Project a continuous native voxel-center index through display only.
@@ -242,7 +247,7 @@ class ImageCanvas(QWidget):
         off-image centerline projection must not be moved onto an image edge.
         """
         if self.kind != "native" or self.qimage is None:
-            raise ValueError("Native image is not ready")
+            raise ValueError(tr("Native image is not ready"))
         width, height = self._native_size()
         quarter = self.native_rotation_quarters()
         if quarter == 1:
@@ -299,6 +304,15 @@ class ImageCanvas(QWidget):
                       "right": labels["top"], "bottom": labels["right"]}
         return labels
 
+    def path_spacing_uv(self):
+        spacing=getattr(self.c.path,"spacing_uv",None)
+        if spacing is None:
+            spacing=(self.c.path.spacing_mm,self.c.path.spacing_mm)
+        u,v=map(float,spacing)
+        if not np.isfinite([u,v]).all() or min(u,v)<=0:
+            raise ValueError(tr("Invalid cross-section pixel spacing."))
+        return u,v
+
     def image_rect(self):
         if self.qimage is None:
             return QRectF(0, 0, self.width(), self.height())
@@ -308,6 +322,8 @@ class ImageCanvas(QWidget):
             spacing=self.c.case.native.image.GetSpacing();aspect_x,aspect_y=spacing[0],spacing[1]
             if self.native_rotation_quarters() % 2:
                 aspect_x,aspect_y=aspect_y,aspect_x
+        if self.kind == "cross" and self.c.path is not None:
+            aspect_x,aspect_y=self.path_spacing_uv()
         if self.kind == "cpr":
             # Physical square pixels; show a useful local length, never stretch anatomy.
             base = min(max(1, self.width() - 76) / iw, 3.0)
@@ -395,13 +411,21 @@ class ImageCanvas(QWidget):
                     return ("record", rec["annotation_id"])
         return ("observe", None)
 
+    def paint_footer(self, painter, text):
+        flags=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap
+        bounds=painter.boundingRect(QRectF(10,0,max(1,self.width()-20),100),flags,str(text))
+        rectangle=QRectF(10,max(0,self.height()-bounds.height()-5),max(1,self.width()-20),bounds.height())
+        painter.fillRect(rectangle.adjusted(-2,-1,2,1),QColor(12,17,23,220))
+        painter.drawText(rectangle,flags,str(text))
+        return rectangle.top()
+
     def paintEvent(self, event):
         p = QPainter(self)
         p.fillRect(self.rect(), QColor("#0c1117"))
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         if self.qimage is None:
             p.setPen(MUTED)
-            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "选择病例后显示真实影像")
+            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, tr('Select a case to display images'))
             return
         r = self.image_rect()
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
@@ -415,7 +439,7 @@ class ImageCanvas(QWidget):
                     p.fillRect(QRectF(r.left(), y0, r.width(), y1-y0), col)
                     if effective_reader_review_required(rec):
                         p.setPen(QColor("#d6bd8a"))
-                        p.drawText(QPointF(r.right() + 6, (y0+y1)/2), "复核")
+                        p.drawText(QPointF(r.right() + 6, (y0+y1)/2), tr('Review'))
             for mark in self.c.path_markers():
                 y = self.screen_s(mark["s_mm"])
                 col = QColor("#ffe3a5") if self.c.selected_marker == mark["marker_id"] else QColor("#b3bbc5")
@@ -427,7 +451,7 @@ class ImageCanvas(QWidget):
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.setPen(QPen(ORANGE, 1.7))
             p.drawRect(QRectF(r.left(), ya, r.width(), yb-ya))
-            for y, caption in [(ya, f"起 {self.c.a:.2f}"), (yb, f"止 {self.c.b:.2f}")]:
+            for y, caption in [(ya, tr('Start {p0:.2f}' ,p0=self.c.a)), (yb, tr('End {p0:.2f}' ,p0=self.c.b))]:
                 p.setPen(QPen(ORANGE, 4))
                 p.drawLine(QPointF(r.center().x()-14,y),QPointF(r.center().x()+14,y))
                 p.setPen(ORANGE)
@@ -440,26 +464,25 @@ class ImageCanvas(QWidget):
                 p.drawEllipse(QPointF(r.left()-5,ys),4,4)
             if not 0 <= ys <= self.height():
                 p.setPen(MUTED)
-                p.drawText(12, 22, "当前层在窗外 · 滚轮导航即跟随")
+                p.drawText(12, 22, tr('Observation outside view · Scroll to follow'))
             p.setPen(MUTED)
-            p.drawText(10,self.height()-9, f"{self.c.path_id}  ·  {self.c.s:.2f} mm  ·  {self.zoom:.2f}×")
+            self.paint_footer(p, f"{self.c.path_id}  ·  {self.c.s:.2f} mm  ·  {self.zoom:.2f}×")
         elif self.kind == "cross":
             cx, cy = r.center().x(), r.center().y()
             if self.c.path:
-                cy += self.c.offset_mm / (self.c.path.spacing_mm*self.qimage.height()) * r.height()
+                cy += self.c.offset_mm / (self.path_spacing_uv()[1]*self.qimage.height()) * r.height()
             if getattr(self.c, "reference_lines_visible", True):
                 p.setPen(QPen(TEAL, 1, Qt.PenStyle.DashLine))
                 p.drawLine(QPointF(r.left(),cy),QPointF(r.right(),cy))
                 p.drawLine(QPointF(cx,r.top()),QPointF(cx,r.bottom()))
             p.setPen(MUTED)
-            p.drawText(10,self.height()-9,f"正交 · s {self.c.s:.2f} mm · 20 mm FOV")
+            self.paint_footer(p,tr("Orthogonal · s {position:.2f} mm · {width:g} × {height:g} mm",position=self.c.s,width=self.qimage.width()*self.path_spacing_uv()[0],height=self.qimage.height()*self.path_spacing_uv()[1]))
         elif self.kind == "native" and self.c.case:
             orientation=self.native_orientation_labels()
             p.setPen(MUTED)
             p.drawText(5,self.height()//2,orientation["left"])
             p.drawText(self.width()-25,self.height()//2,orientation["right"])
             p.drawText(self.width()//2,14,orientation["top"])
-            p.drawText(self.width()//2,self.height()-27,orientation["bottom"])
             idx = self.c.case.native.world_to_index(self.c.path.point(self.c.s))
             point = self.native_index_to_screen(idx[0],idx[1])
             x,y=point.x(),point.y()
@@ -469,9 +492,14 @@ class ImageCanvas(QWidget):
                 p.drawLine(QPointF(x,y-10),QPointF(x,y+10))
             p.setPen(MUTED)
             delta = (self.c.native_z-idx[2])*self.c.case.native.image.GetSpacing()[2]
-            p.drawText(10,self.height()-9,f"原始轴位 z={self.c.native_z} · Δ {delta:+.2f} mm · 虚线=离层投影")
+            caption_top=self.paint_footer(p,tr('Native axial z={p0} · Δ {p1:+.2f} mm · Dashed = off-slice projection' ,p0=self.c.native_z,p1=delta))
+            orientation_x=self.width()//2
+            orientation_y=int(caption_top)-3
+            if abs(orientation_x-x)<16 and abs(orientation_y-y)<18:
+                orientation_x+=22
+            p.drawText(orientation_x,orientation_y,orientation["bottom"])
         p.setPen(MUTED)
-        p.drawText(10,38,self.c.window_text())
+        p.drawText(10,24 if self.kind=="native" else 38,self.c.window_text())
         p.end()
 
     def mousePressEvent(self, event):
@@ -515,16 +543,16 @@ class ImageCanvas(QWidget):
             if is_macos() and modifiers & Qt.KeyboardModifier.ShiftModifier:
                 command = bool(modifiers & Qt.KeyboardModifier.ControlModifier)
                 self.setCursor(Qt.CursorShape.SizeHorCursor if command else Qt.CursorShape.SizeAllCursor)
-                self.c.hint(("⌘+Shift+左键拖动旋转 · 同组合双击旋转复位" if self.kind != "native"
-                             else "原始 CT 不旋转 · Shift+左键可平移") if command
-                            else "Shift+左键拖动平移 · Shift+左键双击居中")
+                self.c.hint((tr('⌘+Shift+left-drag rotates; double-click with the same modifiers resets rotation') if self.kind != "native"
+                             else tr('Native CT is unchanged; Shift+left-drag pans')) if command
+                            else tr('Shift+left-drag pans; Shift+left-double-click centers'))
                 return
             hit = self._hit(event.position())
             mode = hit[0] if hit else "observe"
             cursor = Qt.CursorShape.SizeVerCursor if mode in ("start","end") else Qt.CursorShape.SizeAllCursor if mode == "body" else Qt.CursorShape.PointingHandCursor if mode in ("record","marker") else Qt.CursorShape.CrossCursor
             self.setCursor(cursor)
             primary, alternate = ("⌘", "⌥") if is_macos() else ("Ctrl", "Alt")
-            self.c.hint({"start":f"拖动起点 · {alternate} 暂停吸附","end":f"拖动终点 · {alternate} 暂停吸附","body":"拖动整段 · 长度不变","record":"单击修改已标注段","marker":"单击辅助标记定位 · Delete 删除标记"}.get(mode,f"滚动阅片 · Space 放标记 · {primary}+滚动缩放"))
+            self.c.hint({"start":tr('Drag start · {p0} suspends snapping' ,p0=alternate),"end":tr('Drag end · {p0} suspends snapping' ,p0=alternate),"body":tr('Drag interval · Length stays fixed'),"record":tr('Click to edit a saved interval'),"marker":tr('Click a marker to navigate · Delete removes it')}.get(mode,tr('Scroll to review · Space adds a marker · {p0}+scroll zooms' ,p0=primary)))
             return
         g = self.gesture
         if g["mode"] == "consumed":
@@ -671,7 +699,7 @@ class IntervalTrack(QWidget):
     def __init__(self, controller):
         super().__init__()
         self.c = controller
-        self.setFixedHeight(100)
+        self.setFixedHeight(116)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setMouseTracking(True)
         self.gesture = None
@@ -688,10 +716,10 @@ class IntervalTrack(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.fillRect(self.rect(),QColor("#151f29"))
         if self.c.path is None:
-            p.setPen(MUTED); p.drawText(18,28,"沿血管位置 / 已标注区间")
+            p.setPen(MUTED); p.drawText(18,28,tr('Position along path / annotated intervals'))
             return
         p.setPen(MUTED)
-        p.drawText(20,17,f"观察 {self.c.s:.2f} mm     橙框 {self.c.a:.2f}–{self.c.b:.2f} mm     长 {self.c.b-self.c.a:.2f} mm")
+        p.drawText(20,17,tr('Observation {p0:.2f} mm    Selection {p1:.2f}–{p2:.2f} mm    Length {p3:.2f} mm' ,p0=self.c.s,p1=self.c.a,p2=self.c.b,p3=self.c.b - self.c.a))
         p.setPen(QPen(QColor("#53616f"),2));p.drawLine(QPointF(22,51),QPointF(self.width()-22,51))
         for m in self.c.path_markers():
             x=self.x_s(m["s_mm"])
@@ -715,8 +743,9 @@ class IntervalTrack(QWidget):
             p.fillRect(rectangle,QBrush(color,Qt.BrushStyle.BDiagPattern))
             p.setPen(QPen(color,1));p.drawRect(rectangle)
         p.setPen(MUTED);p.drawText(22,96,"0 mm");p.drawText(self.width()-80,96,f"{self.c.path.length_mm:.1f} mm")
-        if self.c.snap_caption:p.setPen(ORANGE);p.drawText(self.width()//2-100,96,self.c.snap_caption)
-        else:p.drawText(max(85,self.width()//2-100),96,"红斜纹：未标　金斜纹：需复核 · 点击定位")
+        legend=self.c.snap_caption or tr('Red hatch: unannotated · Gold hatch: review · Click to navigate')
+        if self.c.snap_caption:p.setPen(ORANGE)
+        p.drawText(QRectF(85,87,max(1,self.width()-175),28),Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,legend)
 
     def issue_at(self,x):
         matches=[]
@@ -752,7 +781,7 @@ class IntervalTrack(QWidget):
         if not g:
             issue=self.issue_at(event.position().x()) if self.c.path and 77<=event.position().y()<=88 else None
             self.setCursor(Qt.CursorShape.PointingHandCursor if issue else Qt.CursorShape.ArrowCursor)
-            self.setToolTip(self.c.coverage_issue_text(issue)+"；点击将橙框定位到该范围" if issue else "红色斜纹是未标范围，金色斜纹是待复核；点击可定位")
+            self.setToolTip(tr("{issue}. Click to position the selection on this range.",issue=self.c.coverage_issue_text(issue)) if issue else tr('Red hatch indicates gaps and gold hatch indicates review. Click to navigate.'))
             return
         if abs(event.position().x()-g["x"])<3 and not g["moved"]:return
         g["moved"]=True

@@ -8,6 +8,7 @@ import platform
 import subprocess
 import sys
 import zipfile
+from run_workflow_gate import run_workflow
 
 def sha(path):
     h=hashlib.sha256()
@@ -40,16 +41,11 @@ def main():
     env['PATH']=str(Path(windir)/'System32')+';'+windir
     for key in ('PYTHONPATH','PYTHONHOME','QT_SCALE_FACTOR','QT_FONT_DPI','QT_PLUGIN_PATH','QT_QPA_PLATFORM_PLUGIN_PATH'):env.pop(key,None)
     env['QT_QPA_PLATFORM']='windows'
-    sessions=[];db=out/'workspace/annotations.sqlite'
-    for phase in ('create','resume'):
-        result=subprocess.run([str(exe),'--package',str(root/'examples/synthetic-v1'),'--case','single','--reader','RELEASE-QA',
-            '--db',str(db),'--workflow-smoke-output',str(out/'workflow'),'--workflow-smoke-phase',phase],cwd=exe.parent,env=env,
-            creationflags=subprocess.CREATE_NO_WINDOW,capture_output=True,timeout=180)
-        sessions.append({'phase':phase,'exit_code':result.returncode})
-        if result.returncode:raise RuntimeError(f'Frozen workflow failed in {phase}; exit {result.returncode}')
+    workflow=run_workflow([exe],root/'examples/synthetic-v1',out/'workflow',cwd=exe.parent,
+                          env=env,qt_platform='windows',frozen=True)
     report={'status':'PASS','archive_sha256':sha(a.archive),'archive_bytes':a.archive.stat().st_size,'source':'final ZIP re-extraction',
             'platform':platform.platform(),'architecture':platform.machine(),'qt_platform':'windows',
-            'sessions':sessions,'clinical_acceptance':False,'clean_machine_acceptance':False}
+            'sessions':workflow['sessions'],'clinical_acceptance':False,'clean_machine_acceptance':False}
     (out/'zip-verification.json').write_text(json.dumps(report,indent=2),encoding='utf-8');print(json.dumps(report,indent=2))
 
 if __name__=='__main__':main()

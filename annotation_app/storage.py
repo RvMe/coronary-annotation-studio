@@ -31,13 +31,32 @@ def _utc() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def io_path(path) -> Path:
+    """Use Windows' extended path form for file I/O without changing OS settings."""
+    path = Path(path).resolve()
+    value = str(path)
+    if os.name == 'nt' and not value.startswith('\\\\?\\'):
+        return Path('\\\\?\\UNC\\' + value[2:] if value.startswith('\\\\') else '\\\\?\\' + value)
+    return path
+
+
+def display_path(path) -> Path:
+    value = str(path)
+    if value.startswith('\\\\?\\UNC\\'):
+        value = '\\\\' + value[8:]
+    elif value.startswith('\\\\?\\'):
+        value = value[4:]
+    return Path(value)
+
+
 def _safe_name(value: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9_-]", "_", value)[:40] or "id"
     return cleaned + "_" + hashlib.sha256(value.encode("utf-8")).hexdigest()[:8]
 
 
 def _atomic_write(path: Path, content: bytes) -> None:
-    temporary = path.with_name(path.name + "." + uuid4().hex + ".tmp")
+    path = io_path(path)
+    temporary = path.with_name(uuid4().hex + ".tmp")
     try:
         with temporary.open("xb") as handle:
             handle.write(content)
@@ -259,7 +278,7 @@ class AnnotationStore:
         with self._transaction():
             state = self.load(case_id, reader_id)
             audit = self._audit_records(case_id, reader_id)
-        target = Path(directory).resolve() / f"case_{_safe_name(str(case_id))}__reader_{_safe_name(reader_id)}__r{state['revision']}_{uuid4().hex[:8]}"
+        target = io_path(directory) / f"case_{_safe_name(str(case_id))}__reader_{_safe_name(reader_id)}__r{state['revision']}_{uuid4().hex[:8]}"
         target.mkdir(parents=True, exist_ok=False)
         csv_buffer = io.StringIO(newline="")
         fields = ["case_id", "reader_id", "revision", "case_status", "case_completion_mode", "case_coverage_percent", "case_coverage_basis", "annotation_id", "label_group_id", "path_id", "canonical_anatomy_id", "anatomical_segment", "s_start_mm", "s_end_mm", "finding_status", "plaque_composition", "stenosis_grade", "confidence", "reason", "reason_codes_json", "s_peak_stenosis_mm", "review_required", "review_status", "effective_reader_review_required", "reader_review_reasons", "technical_qa_reasons", "label_scope", "training_segment_label_eligible", "native_anchors_json", "provenance_json"]
@@ -313,10 +332,10 @@ class AnnotationStore:
             manifest["files"].append({"path": name, "bytes": len(payload), "sha256": hashlib.sha256(payload).hexdigest()})
         # This final file is the completion marker; interrupted exports lack a valid manifest.
         _atomic_write(target / "checksums.json", (_json(manifest) + "\n").encode("utf-8"))
-        return target / "annotations.json"
+        return display_path(target / "annotations.json")
 
     def import_case(self, json_path, reader_id=None) -> dict:
-        source_path = Path(json_path).resolve(strict=True)
+        source_path = io_path(json_path).resolve(strict=True)
         if source_path.name != "annotations.json":
             raise ValueError("Import an exported annotations.json with its checksum and audit files")
         manifest_path = source_path.parent / "checksums.json"
@@ -378,19 +397,19 @@ class AnnotationStore:
     def export_batch(self, reader_id, directory, case_ids=None):
         """Offline export with a final batch completion manifest; no image access."""
         from .package import file_record
-        root = Path(directory).resolve() / ("batch_" + uuid4().hex)
+        root = io_path(directory) / ("batch_" + uuid4().hex)
         root.mkdir(parents=True, exist_ok=False)
         ids = self.list_case_ids(reader_id) if case_ids is None else list(dict.fromkeys(case_ids))
         entries = []
         for case_id in ids:
             exported = self.export_case(case_id, reader_id, root)
-            entries.append({"case_id": case_id, "annotations": exported.relative_to(root).as_posix()})
+            entries.append({"case_id": case_id, "annotations": exported.relative_to(display_path(root)).as_posix()})
         manifest = {"schema_version": "cas-batch-export-1.0", "reader_id": reader_id, "cases": entries,
                     "files": [file_record(p, root) for p in sorted(root.rglob("*")) if p.is_file()]}
         project = self.connection.execute("SELECT project_id FROM project_identity WHERE singleton=1").fetchone()
         manifest["project_id"] = project[0] if project else None
         _atomic_write(root / "batch-manifest.json", (_json(manifest)+"\n").encode("utf-8"))
-        return {"status": "PASS", "manifest": str(root/"batch-manifest.json"), "case_count": len(entries)}
+        return {"status": "PASS", "manifest": str(display_path(root/"batch-manifest.json")), "case_count": len(entries)}
 
     def __enter__(self):
         return self

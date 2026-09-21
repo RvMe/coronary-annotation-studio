@@ -1,5 +1,9 @@
 # Coronary Annotation Studio
 
+![English application window with synthetic data](images/studio-en.png)
+
+Actual desktop screenshot using a mathematical phantom, not patient data.
+
 Annotate coronary lesion intervals on existing 3D CPR images, review gaps and
 uncertainties, recover drafts, and export labels with a full audit record.
 

@@ -4,12 +4,13 @@ import hashlib
 import json
 from pathlib import Path
 import sqlite3
+import shutil
 import tempfile
 import unittest
 from unittest.mock import patch
 
 from annotation_app.domain import add_marker, apply_annotation, delete_annotation
-from annotation_app.storage import AnnotationStore
+from annotation_app.storage import AnnotationStore, io_path
 from tests.test_domain import annotation
 
 
@@ -37,6 +38,25 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(self.store.load("1", "A", self.source), first)
         second = self.store.commit(add_marker(first, "LAD", 19.123456789), "marker")
         self.assertEqual(second["revision"], 2)
+
+    def test_deep_batch_export_and_import_exceed_windows_max_path(self):
+        expected=self.committed()
+        long_root=self.root/('export-destination-'+'x'*90)
+        destination=long_root/('nested-'+'y'*80)
+        try:
+            result=self.store.export_batch('A',destination)
+            manifest_path=io_path(result['manifest'])
+            manifest=json.loads(manifest_path.read_text(encoding='utf-8'))
+            annotation_path=manifest_path.parent/manifest['cases'][0]['annotations']
+            self.assertGreater(len(str(annotation_path)),260)
+            with AnnotationStore(self.root/'imported.sqlite') as receiver:
+                actual=receiver.import_case(annotation_path,reader_id='A')
+            self.assertEqual(actual['annotations'],expected['annotations'])
+            for entry in manifest['files']:
+                content=(manifest_path.parent/entry['path']).read_bytes()
+                self.assertEqual(hashlib.sha256(content).hexdigest(),entry['sha256'])
+        finally:
+            if io_path(long_root).exists():shutil.rmtree(io_path(long_root))
 
     def test_reader_and_case_isolation(self):
         self.committed()

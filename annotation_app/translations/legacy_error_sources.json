@@ -1,0 +1,19 @@
+{
+  "困难原因必须为可选原因列表": "Reasons must be a list of optional reason codes.",
+  "困难原因包含未知或重复选项": "Reasons contain an unknown or duplicate option.",
+  "未知的标注字段": "Unknown annotation field.",
+  "请先选择 1 · 本段所见": "Select 1 · Interval finding first.",
+  "请选择 2 · 斑块组成；不能确定时可选“类型不确定”": "Select 2 · Plaque composition; choose Uncertain type if needed.",
+  "正常或不可评估不应保留斑块组成": "Normal and non-evaluable findings cannot retain plaque composition.",
+  "请选择 3 · 本段最大直径狭窄": "Select 3 · Maximum diameter stenosis.",
+  "明确正常对应无斑块、狭窄 0%；非斑块性狭窄不能标为明确正常": "Normal means no plaque and 0% stenosis. Non-plaque stenosis cannot be labeled normal.",
+  "旧版备注必须为文字": "The legacy note must be text.",
+  "请选择本段所见": "Select an interval finding.",
+  "不可评估应跳过狭窄分级与把握，保存为无法判断和不适用": "Not evaluable skips stenosis grading and confidence; these are saved as unable and not applicable.",
+  "请选择 4 · 判断把握；更改诊断后需重新确认把握": "Select 4 · Confidence; confirm it again after changing the finding.",
+  "只有明确的非零狭窄等级可指定最狭窄位置": "Peak stenosis requires an explicit nonzero stenosis grade.",
+  "最狭窄位置必须为有效非负毫米值": "Peak stenosis must be a valid nonnegative distance in millimeters.",
+  "只有不可评估时可选择困难原因": "Reasons can be selected only for a non-evaluable interval.",
+  "此字段不适用于当前所见，请先选择本段所见": "This field does not apply to the current finding. Select a finding first.",
+  "未知的标注选项": "Unknown annotation option."
+}

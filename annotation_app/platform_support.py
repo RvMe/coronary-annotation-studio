@@ -5,12 +5,14 @@ Command on macOS.  Do not substitute MetaModifier for Command in event handlers.
 """
 from __future__ import annotations
 
+from .i18n import tr
+
 import os
 import sys
 from pathlib import Path
 
 
-APP_DIRECTORY = "ImageCASXAnnotator"
+APP_DIRECTORY = "CoronaryAnnotationStudio"
 
 
 def is_macos():
@@ -45,36 +47,4 @@ def font_family_css():
 
 
 def shortcut_help():
-    common = (
-        "阅片与标注速查\n\n"
-        "Z：三窗绿色参考线开 / 关\n输入框内 Z 仅输入\n"
-        "CT 标题 90°：顺时针转向\n默认 180°；新血管沿用，重启保留\n\n"
-        "滚轮 / 双指滚动：沿血管 / CT 翻层\n"
-        "Space：在当前层放辅助标记\n橙框横边：拖起点 / 终点\n"
-        "橙框竖边：移动整段\n"
-        f"{alternate_modifier_label()} + 拖框：暂停吸附\n"
-        "单击旧色块：修改该片段\n底条红色缺口：点击定位补标\n"
-        "下一处：跨血管查漏 / 复核\n\n"
-    )
-    if is_macos():
-        gestures = (
-            "右拖 / ⇧ + 左拖：平移\n右双击：居中\n"
-            "⌘ + 右拖 / ⌘⇧ + 左拖：CPR 旋转\n"
-            "⌘ + 左拖：CPR 离轴\n⌘ + 滚动：缩放\n"
-            "⌘ + 中键：缩放复位\n中拖：窗宽 / 窗位；双击复位\n"
-            "无中键：点影像标题‘窗宽/位’\n"
-            "居中、1×、旋转/离轴归零均可点击\n"
-            "⌘ + 右双击：旋转复位\n⌘ + 左双击：离轴复位\n\n"
-            "S / Enter：应用　Esc：取消\n输入框内 S 仅输入，不应用\n"
-            "⌘Z / ⌘⇧Z：撤销 / 重做\n⌘S：保存　⌘Q：保存并退出\n"
-            "Delete（⌫）：删除选中标记或片段\n仅在影像 / 区间条有焦点时生效\n"
-        )
-    else:
-        gestures = (
-            "右拖：平移　右双击：居中\nCtrl + 右拖：旋转；双击复位\n"
-            "Ctrl + 左拖：离轴；双击复位\nCtrl + 滚轮：缩放\n"
-            "Ctrl + 中键：缩放复位\n中拖：窗宽 / 窗位；双击复位\n\n"
-            "S / Enter：应用　Esc：取消\n输入框内 S 仅输入，不应用\n"
-            "Ctrl + Z / Y：撤销 / 重做\nDelete：删除选中标记或片段\n"
-        )
-    return common + gestures + "H：暂时隐藏色块（按住）"
+    return tr('Review and annotation shortcuts\n\nZ: toggle green reference lines\nZ only types inside text fields\nCT 90° button: rotate clockwise\nInitial 0°; retained across paths and restarts\n\nWheel / two-finger scroll: path / CT slices\nSpace: place a marker\nSelection horizontal edges: drag start / end\nSelection vertical edges: move the interval\n{p0} + drag: suspend snapping\nClick saved overlays: edit intervals\nClick red gaps: navigate\nNext issue: gaps / reviews across paths\n\nRight-drag / ⇧+left-drag: pan\nRight-double-click: center\n⌘+right-drag / ⌘⇧+left-drag: CPR rotation\n⌘+left-drag: CPR offset\n⌘+scroll: zoom\n⌘+middle-click: reset zoom\nMiddle-drag: window / level; double-click resets\nWithout middle button: use the W/L button\nCenter, 1× and sampling resets are also buttons\n⌘+right-double-click: reset rotation\n⌘+left-double-click: reset offset\n\nS / Enter: apply · Esc: cancel\nS only types inside text fields\n⌘Z / ⌘⇧Z: undo / redo\n⌘S: save · ⌘Q: save and quit\nDelete (⌫): remove selected marker / interval\nRequires focus in an image or timeline\nHold H: temporarily hide overlays' if is_macos() else 'Review and annotation shortcuts\n\nZ: toggle green reference lines\nZ only types inside text fields\nCT 90° button: rotate clockwise\nInitial 0°; retained across paths and restarts\n\nWheel / two-finger scroll: path / CT slices\nSpace: place a marker\nSelection horizontal edges: drag start / end\nSelection vertical edges: move the interval\n{p0} + drag: suspend snapping\nClick saved overlays: edit intervals\nClick red gaps: navigate\nNext issue: gaps / reviews across paths\n\nRight-drag: pan · Right-double-click: center\nCtrl+right-drag: rotate; double-click resets\nCtrl+left-drag: offset; double-click resets\nCtrl+wheel: zoom\nCtrl+middle-click: reset zoom\nMiddle-drag: window / level; double-click resets\n\nS / Enter: apply · Esc: cancel\nS only types inside text fields\nCtrl+Z / Y: undo / redo\nDelete: remove selected marker / interval\nHold H: temporarily hide overlays',p0=alternate_modifier_label())

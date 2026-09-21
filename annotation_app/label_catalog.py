@@ -3,13 +3,13 @@
 PROTOCOL_VERSION = "imagecasx-reader-1.3"
 REASON_CATALOG_VERSION = "imagecasx-reasons-1.0"
 REASON_OPTIONS = (
-    ("motion_artifact", "运动/错层", "血管运动模糊、错位或阶梯状断续"),
-    ("blooming_metal_artifact", "钙化/金属伪影", "钙化膨胀、金属或条纹伪影遮挡管腔；不自动判定斑块类型"),
-    ("poor_contrast", "造影偏弱", "血管显影不足，边界不易辨认"),
-    ("noise_blur", "噪声/模糊", "噪声较大、细节或细小血管看不清"),
-    ("cpr_geometry_coverage", "CPR偏轴/不完整", "中心线偏离、重建畸变或目标未完整显示；不等同于原始CT不可评估"),
-    ("interpretive_uncertainty", "类型/程度难定", "可以看到目标，但组成或狭窄等级仍难确定"),
-    ("other", "其他", "其他阅片困难；选择后仍不要求输入文字"),
+    ("motion_artifact", 'Motion / misalignment', 'Motion blur, misalignment or discontinuity along the path'),
+    ("blooming_metal_artifact", 'Blooming / metal artifact', 'Calcium blooming, metal or streaks obscure the lumen. This does not assign plaque composition.'),
+    ("poor_contrast", 'Poor contrast', 'Weak vessel enhancement makes boundaries difficult to identify.'),
+    ("noise_blur", 'Noise / blur', 'Noise or blur obscures detail or small vessels.'),
+    ("cpr_geometry_coverage", 'CPR geometry / coverage', 'Off-center geometry, reconstruction distortion or incomplete coverage. This does not imply that native CT is not evaluable.'),
+    ("interpretive_uncertainty", 'Interpretive uncertainty', 'The target is visible but composition or stenosis grade remains uncertain.'),
+    ("other", 'Other', 'Other reading difficulty; a text explanation is not required.'),
 )
 REASON_CODES = frozenset(code for code, _, _ in REASON_OPTIONS)
 

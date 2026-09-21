@@ -5,6 +5,10 @@ three-dimensional curved planar reformats (CPRs), with native CT linkage.
 
 **English is the default. Switch to 简体中文 at any time.**
 
+![Coronary Annotation Studio with a synthetic example](docs/images/studio-en.png)
+
+*Actual application window with a mathematical phantom; no patient data.*
+
 [中文文档](docs/zh/index.md) · [Quick start](docs/quickstart.md) ·
 [Data format](docs/data-format.md) · [3D Slicer adapter](docs/slicer.md)
 
