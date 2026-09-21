@@ -15,6 +15,7 @@ nav:
       - Slicer adapter: slicer.md
       - Legacy import: legacy.md
   - Reference:
+      - Build and verify: build.md
       - Troubleshooting: troubleshooting.md
       - Limitations: limitations.md
       - Release evidence: acceptance.md

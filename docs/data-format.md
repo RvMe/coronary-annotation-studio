@@ -91,7 +91,10 @@ Field names and enum values are language-independent.
 
 Intervals use start-inclusive/end-exclusive bounds; coverage additionally treats
 the physical final endpoint consistently. Source geometry and project identity
-must agree when records are reopened. Revisions and edit snapshots are audited.
+must agree when records are reopened. `source.geometry_sha256` additionally binds
+the native image, CPRs, mappings, shared relation and scope. Reusing a geometry
+ID cannot silently rebind labels to changed image/mapping assets. Revisions and
+edit snapshots are audited.
 
 An export contains `annotations.json`, `annotations.csv`, `audit.jsonl` and a
 `cas-export-1.0` checksum manifest. Import requires all four files. CSV escapes

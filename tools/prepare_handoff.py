@@ -16,7 +16,7 @@ def main():
             if path.is_file() and '__pycache__' not in path.parts and path.suffix not in ('.pyc','.sqlite','.db'):
                 if a.backend_only and (path.name in owned or 'translations' in path.parts):continue
                 files.append(path)
-    for name in ('IMPLEMENTATION.md','SOURCE_ORIGIN.json','pyproject.toml','LICENSE','NOTICE','README.md','mkdocs.yml','.gitignore','CITATION.cff','CHANGELOG.md','CONTRIBUTING.md','THIRD_PARTY_NOTICES.md'):
+    for name in ('IMPLEMENTATION.md','SOURCE_ORIGIN.json','pyproject.toml','LICENSE','NOTICE','README.md','mkdocs.yml','.gitignore','.gitattributes','requirements-build.txt','CITATION.cff','CHANGELOG.md','CONTRIBUTING.md','THIRD_PARTY_NOTICES.md'):
         if (root/name).is_file():files.append(root/name)
     records=[]
     with zipfile.ZipFile(output,'x',compression=zipfile.ZIP_DEFLATED,compresslevel=6) as archive:

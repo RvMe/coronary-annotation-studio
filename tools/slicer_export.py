@@ -60,9 +60,8 @@ in the package report; this is a sampled numerical check, not clinical QA.
         direction=entry.get("mapping_direction")
         if direction not in ("from_parent","to_parent"):
             raise ValueError(f"{pid}: explicitly choose mapping_direction from_parent or to_parent")
-        mapping=vtk.vtkGeneralTransform()
-        if direction=="from_parent":transform.GetTransformFromParent(mapping)
-        else:transform.GetTransformToParent(mapping)
+        mapping=(transform.GetTransformFromParent() if direction=="from_parent"
+                 else transform.GetTransformToParent())
         array=slicer.util.arrayFromVolume(cpr)
         if array.ndim!=3 or min(array.shape)<2 or not np.isfinite(array).all():
             raise ValueError(f"{pid}: 3D CPR required; MIP/screenshots/projections are unsupported")

@@ -36,7 +36,7 @@ ANNOTATION=obj({"annotation_id":TEXT,"label_group_id":TEXT,"path_id":ID,"canonic
                 "native_anchors":{"type":["array","object"]},"provenance":{"type":"object"},"review_required":{"type":"boolean"},
                 "review_status":TEXT},['annotation_id','label_group_id','path_id','canonical_anatomy_id','anatomical_segment','s_start_mm','s_end_mm','label','native_anchors','provenance','review_required'])
 ANNOTATIONS=obj({"schema_version":{"const":"cas-annotations-1.0"},"case_id":ID,"reader_id":TEXT,"revision":{"type":"integer","minimum":0},
-                 "source":obj({"project_id":ID,"geometry_id":ID,"annotation_scope":array(ID,1)},['project_id','geometry_id','annotation_scope']),
+                 "source":obj({"project_id":ID,"geometry_id":ID,"geometry_sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},"annotation_scope":array(ID,1)},['project_id','geometry_id','geometry_sha256','annotation_scope']),
                  "annotations":array(ANNOTATION),"markers":array({"type":"object"}),"rereview_intervals":array({"type":"object"}),
                  "view_state":{"type":"object"},"case_status":enum('in_progress','complete','complete_with_gaps'),"completion":{"type":"object"}},
                 ['schema_version','case_id','reader_id','revision','source','annotations','markers','rereview_intervals','view_state','case_status'])

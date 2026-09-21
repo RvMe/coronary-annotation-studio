@@ -29,6 +29,10 @@
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
         },
+        "geometry_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
         "annotation_scope": {
           "type": "array",
           "items": {
@@ -41,6 +45,7 @@
       "required": [
         "project_id",
         "geometry_id",
+        "geometry_sha256",
         "annotation_scope"
       ]
     },

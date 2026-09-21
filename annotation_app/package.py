@@ -141,7 +141,16 @@ def validate_package(path):
 def source_for_case(case, case_path=None):
     """Stable provenance shared by GUI, legacy conversion and offline exports."""
     m = case.manifest if hasattr(case, "manifest") else case
-    source = {"project_id": m["project_id"], "geometry_id": m["geometry_id"],
+    hashes = {item["path"]: item["sha256"] for item in m["files"]}
+    binding = {"native_sha256": hashes[m["native"]], "paths": {},
+               "canonical_lm": m.get("canonical_lm", {"status":"not_present"}),
+               "annotation_scope": m["annotation_scope"]}
+    for pid, record in m["paths"].items():
+        mapping = dict(record["mapping"])
+        mapping["file_sha256"] = hashes[mapping.pop("file")]
+        binding["paths"][pid] = {"image_sha256":hashes[record["image"]], "mapping":mapping}
+    fingerprint = hashlib.sha256(json.dumps(binding,sort_keys=True,separators=(",",":"),allow_nan=False).encode("utf-8")).hexdigest()
+    source = {"project_id": m["project_id"], "geometry_id": m["geometry_id"], "geometry_sha256":fingerprint,
               "physical_coordinate_system": "LPS", "coordinate_units": "mm",
               "interval_convention": "half-open-start-inclusive-end-exclusive",
               "annotation_scope": m["annotation_scope"]}

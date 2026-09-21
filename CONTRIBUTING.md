@@ -9,6 +9,7 @@ Install from source as described in the README. Run `python -m unittest discover
 -s tests -v`. Add meaningful tests for changed coordinate transforms, annotation
 round trips, recovery and project/reader isolation. UI changes must be checked in
 both English and Simplified Chinese, including a draft present during switching.
+See [build and verification instructions](docs/build.md) for release preparation.
 
 Use stable language-independent field names and enums. Do not treat unlabeled
 regions as negative, infer anatomical ownership from filenames, change geometry

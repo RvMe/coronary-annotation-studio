@@ -7,6 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 import numpy as np
+import SimpleITK as sitk
 from annotation_app.synthetic import generate
 from annotation_app.imaging import load_case, GeometryError
 from annotation_app.package import validate_package, file_record, source_for_case
@@ -78,6 +79,19 @@ class PublicPackageTests(unittest.TestCase):
     def test_package_cannot_mix_projects(self):
         self.edit_case('single',lambda m:m.update(project_id='other'))
         with self.assertRaisesRegex(ValueError,'project or case identity'):project_for_package(self.package)
+
+    def test_reused_geometry_id_cannot_silently_rebind_changed_image_assets(self):
+        path=self.package/'single/case.json';case=load_case(path)
+        with AnnotationStore(self.root/'bound/annotations.sqlite') as store:
+            store.commit(apply_annotation(store.load(case.case_id,'A',source_for_case(case)),annotation(0,10,path='coronary-path-A')),'apply')
+            imagepath=self.package/'single/native.nii.gz'
+            changed=sitk.ReadImage(str(imagepath))+1
+            sitk.WriteImage(changed,str(imagepath))
+            self.edit_case('single',lambda m:m.update(files=[file_record(path.parent/item['path'],path.parent) for item in m['files']]))
+            replacement=load_case(path)
+            self.assertEqual(replacement.manifest['geometry_id'],case.manifest['geometry_id'])
+            self.assertNotEqual(source_for_case(replacement)['geometry_sha256'],source_for_case(case)['geometry_sha256'])
+            with self.assertRaisesRegex(ValueError,'provenance'):store.load(case.case_id,'A',source_for_case(replacement))
 
     def test_offline_export_and_batch_manifest(self):
         case=load_case(self.package/'single/case.json');db=self.root/'records/db.sqlite'
